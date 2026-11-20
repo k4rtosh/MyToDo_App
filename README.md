@@ -14,11 +14,13 @@
 index.html            — всё приложение (HTML + CSS + JS в одном файле)
 manifest.webmanifest  — PWA: имя, иконки, запуск без адресной строки
 sw.js                 — service worker: офлайн-кэш оболочки
-icons/                — иконки 192/512 и apple-touch-icon
+favicon.ico           — иконка вкладки, 16/32/48
+icons/                — PWA-иконки 192/512, apple-touch-icon, favicon.svg и 16/32 px
 supabase/schema.sql   — таблицы, индексы, триггеры, RLS для Supabase
 docs/ARCHITECTURE.md  — архитектура, слои, роадмап, что оптимизировать
 docs/MIGRATION-SUPABASE.md — план перехода на облако и Pages
-tools/make-icons.py   — генерация иконок (Pillow)
+tools/make-icons.py   — генерация PWA-иконок (Pillow)
+tools/make-favicon.py — генерация favicon (белый фон + зелёный кружок)
 ```
 
 Личные выгрузки задач (`data/`, `*.private.json`) в репозиторий не коммитятся — они в `.gitignore`.

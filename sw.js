@@ -2,11 +2,15 @@
    Стратегия: навигация — сеть, при отсутствии сети — кэш;
    остальные GET — кэш, при промахе — сеть с докладыванием в кэш. */
 
-const CACHE = 'todo-shell-v3';
+const CACHE = 'todo-shell-v4';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './favicon.ico',
+  './icons/favicon.svg',
+  './icons/favicon-16.png',
+  './icons/favicon-32.png',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png'
