@@ -213,6 +213,8 @@ kbd{background:var(--line2);border:1px solid var(--line);border-radius:5px;paddi
 .toast.warn{background:#7c2d12}
 
 .scrim{position:fixed;inset:0;background:rgba(11,15,20,.45);z-index:25;display:none}
+.scrim.show{display:block}
+.side-close{display:none;margin-left:auto}
 .hint{font-size:12px;color:var(--mut2)}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .hidden{display:none !important}
@@ -222,6 +224,7 @@ kbd{background:var(--line2);border:1px solid var(--line);border-radius:5px;paddi
   .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:30;transform:translateX(-104%);transition:transform .2s ease;box-shadow:var(--sh-lg)}
   .sidebar.open{transform:none}
   .app.drawer .scrim{display:block}
+  .side-close{display:grid}
   .content{padding:16px 14px 90px}
   .topbar{padding:9px 12px}
   .page-head h1{font-size:20px}
@@ -269,7 +272,7 @@ kbd{background:var(--line2);border:1px solid var(--line);border-radius:5px;paddi
 
 <div class="app" id="app">
   <aside class="sidebar" id="sidebar">
-    <div class="brand"><span class="dot"></span> Задачи</div>
+    <div class="brand"><span class="dot"></span> Задачи<button class="icon-btn side-close" data-action="closeDrawer" aria-label="Закрыть меню" title="Закрыть меню"><svg class="i sm"><use href="#i-x"/></svg></button></div>
     <div class="side-scroll" id="sidebarNav"></div>
     <div class="side-foot">
       <button class="nav-item" data-action="toggleTheme" id="themeBtn" title="Тема"></button>
@@ -1417,7 +1420,46 @@ function toggleTheme() {
 /* ============================================================================
    10. СОБЫТИЯ
    ========================================================================== */
-function closeDrawer() { document.getElementById('app').classList.remove('drawer'); document.getElementById('sidebar').classList.remove('open'); }
+function openDrawer() {
+  document.getElementById('app').classList.add('drawer');
+  document.getElementById('sidebar').classList.add('open');
+  const scrim = document.querySelector('.scrim');
+  if (scrim) scrim.classList.add('show');
+}
+function closeDrawer() {
+  document.getElementById('app').classList.remove('drawer');
+  document.getElementById('sidebar').classList.remove('open');
+  const scrim = document.querySelector('.scrim');
+  if (scrim) scrim.classList.remove('show');
+}
+function drawerOpen() {
+  const app = document.getElementById('app');
+  return !!(app && app.classList.contains('drawer'));
+}
+
+/* меню на телефоне: свайп от левого края открывает, свайп влево закрывает */
+function initDrawerGestures() {
+  let sx = 0, sy = 0, armed = false;
+
+  document.addEventListener('touchstart', e => {
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    sx = t.clientX; sy = t.clientY;
+    armed = drawerOpen() || sx < 48;
+  }, { passive: true });
+
+  document.addEventListener('touchend', e => {
+    if (!armed) return;
+    armed = false;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - sx;
+    const dy = t.clientY - sy;
+    if (Math.abs(dx) < 55 || Math.abs(dy) > Math.abs(dx)) return; // нужен явно горизонтальный жест
+    if (drawerOpen()) { if (dx < 0) closeDrawer(); }
+    else openDrawer();
+  }, { passive: true });
+}
 
 function onDocumentClick(e) {
   const el = e.target.closest('[data-action],[data-nav],[data-task],[data-sub],[data-filter],[data-quick],[data-tag],[data-copy],[data-goto],[data-overlay]');
@@ -1438,7 +1480,7 @@ function onDocumentClick(e) {
   }
 
   const a = el.dataset.action;
-  if (a === 'menu') { document.getElementById('app').classList.add('drawer'); document.getElementById('sidebar').classList.add('open'); return; }
+  if (a === 'menu') { openDrawer(); return; }
   if (a === 'closeDrawer') { closeDrawer(); return; }
   if (a === 'openSearch') { openSearchModal(); return; }
   if (a === 'openSync') { openSyncModal(); return; }
@@ -2009,6 +2051,7 @@ load();
 renderTheme();
 render();
 initSync();
+initDrawerGestures();
 
 </script>
 

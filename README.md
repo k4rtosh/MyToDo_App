@@ -19,8 +19,7 @@ icons/                — PWA-иконки 192/512, apple-touch-icon, favicon.sv
 supabase/schema.sql   — таблицы, индексы, триггеры, RLS для Supabase
 docs/ARCHITECTURE.md  — архитектура, слои, роадмап, что оптимизировать
 docs/MIGRATION-SUPABASE.md — план перехода на облако и Pages
-tools/make-icons.py   — генерация PWA-иконок (Pillow)
-tools/make-favicon.py — генерация favicon (белый фон + зелёный кружок)
+tools/make-icons.py   — все иконки сразу: PWA 192/512, apple-touch-icon, favicon (svg/16/32/ico)
 ```
 
 Личные выгрузки задач (`data/`, `*.private.json`) в репозиторий не коммитятся — они в `.gitignore`.
