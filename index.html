@@ -1,0 +1,2019 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f766e">
+<meta name="description" content="Проекты, карточки и задачи: офлайн, синхронизация между устройствами">
+<meta name="application-name" content="Задачи">
+<meta name="apple-mobile-web-app-title" content="Задачи">
+<title>Задачи</title>
+<style>
+/* ===== токены ===== */
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --elev:#ffffff; --line:#e4e8ee; --line2:#eef1f5;
+  --txt:#141a21; --mut:#68717c; --mut2:#8b95a1;
+  --acc:#0f766e; --acc-h:#0d655e; --acc-soft:#e7f4f1; --acc-line:#bfe0da;
+  --hi:#c2410c; --hi-soft:#fdece4; --hi-line:#f6d3c1;
+  --ok:#15803d; --ok-soft:#e8f6ec;
+  --warn:#a16207; --warn-soft:#fdf4e3;
+  --dan:#b91c1c; --dan-soft:#fdeceb;
+  --r:12px; --r-sm:9px; --r-lg:16px;
+  --sh:0 1px 2px rgba(16,24,40,.05);
+  --sh-lg:0 8px 24px rgba(16,24,40,.10);
+  --side:248px;
+}
+[data-theme="dark"]{
+  --bg:#0f1317; --panel:#151b21; --elev:#1a212a; --line:#242d37; --line2:#1e262f;
+  --txt:#e8edf2; --mut:#98a3af; --mut2:#7d8895;
+  --acc:#2dd4bf; --acc-h:#5eead4; --acc-soft:#10312e; --acc-line:#1d4a44;
+  --hi:#fb923c; --hi-soft:#2f1d12; --hi-line:#4a2d19;
+  --ok:#4ade80; --ok-soft:#12281a;
+  --warn:#fbbf24; --warn-soft:#2b2110;
+  --dan:#f87171; --dan-soft:#2d1414;
+  --sh:0 1px 2px rgba(0,0,0,.3);
+  --sh-lg:0 10px 30px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0}
+a{color:var(--acc);text-decoration:none}
+h1,h2,h3,p{margin:0}
+.i{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.i.sm{width:15px;height:15px}
+
+/* ===== каркас ===== */
+.app{display:flex;min-height:100vh}
+.sidebar{width:var(--side);flex:none;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:9px;padding:16px 16px 10px;font-weight:800;font-size:16px;letter-spacing:-.01em}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 4px var(--acc-soft)}
+.side-scroll{overflow:auto;padding:4px 8px 8px;flex:1}
+.side-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut2);font-weight:700;padding:14px 8px 6px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r-sm);color:var(--txt);font-size:14px;width:100%;text-align:left}
+.nav-item:hover{background:var(--line2)}
+.nav-item.active{background:var(--acc-soft);color:var(--acc);font-weight:600}
+.nav-item .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-item .cnt{font-size:12px;color:var(--mut2);font-variant-numeric:tabular-nums}
+.nav-item.active .cnt{color:var(--acc)}
+.nav-item .alert{width:7px;height:7px;border-radius:50%;background:var(--hi)}
+.side-foot{border-top:1px solid var(--line);padding:8px;display:flex;gap:4px;flex-wrap:wrap}
+.side-foot .nav-item{width:auto;flex:1}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:15;background:var(--bg);background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.menu-btn{display:none}
+.crumbs{display:flex;gap:7px;align-items:center;font-size:13.5px;min-width:0;color:var(--mut)}
+.crumbs a{color:var(--mut)}
+.crumbs a:hover{color:var(--acc)}
+.crumbs .cur{color:var(--txt);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spacer{flex:1}
+.content{max-width:940px;width:100%;margin:0 auto;padding:22px 20px 80px}
+.page-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px;flex-wrap:wrap}
+.page-head h1{font-size:23px;font-weight:800;letter-spacing:-.02em;line-height:1.25}
+.page-sub{color:var(--mut);font-size:13.5px;margin-top:3px}
+.head-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+
+/* ===== кнопки ===== */
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--panel);padding:8px 13px;border-radius:var(--r-sm);font-size:14px;box-shadow:var(--sh)}
+.btn:hover{border-color:var(--line2);background:var(--elev)}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+[data-theme="dark"] .btn.pri{color:#04110f}
+.btn.pri:hover{background:var(--acc-h);border-color:var(--acc-h)}
+.btn.dan{color:var(--dan)}
+.btn.sm{padding:5px 10px;font-size:13px;border-radius:8px}
+.btn.ghost{border-color:transparent;background:transparent;box-shadow:none;color:var(--mut)}
+.btn.ghost:hover{background:var(--line2)}
+.icon-btn{width:32px;height:32px;display:grid;place-items:center;border-radius:9px;color:var(--mut)}
+.icon-btn:hover{background:var(--line2);color:var(--txt)}
+
+/* ===== прогресс ===== */
+.meter{height:6px;background:var(--line2);border-radius:99px;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--acc);border-radius:99px;transition:width .2s ease}
+.stats{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--mut)}
+.stats b{color:var(--txt);font-variant-numeric:tabular-nums}
+
+/* ===== плитки ===== */
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(258px,1fr))}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:15px;display:flex;flex-direction:column;gap:9px;box-shadow:var(--sh);transition:border-color .15s,box-shadow .15s,transform .15s}
+.tile:hover{border-color:var(--acc-line);box-shadow:var(--sh-lg)}
+.tile:active{transform:translateY(1px)}
+.tile a{color:var(--txt);display:block}
+.tile .tname{font-weight:700;font-size:15.5px;line-height:1.3;display:flex;gap:8px;align-items:center}
+.tile .tmeta{color:var(--mut);font-size:12.5px;margin-top:4px}
+.tile .tacts{display:flex;gap:2px;justify-content:flex-end;margin:2px -4px -4px 0;opacity:.55;transition:opacity .15s}
+.tile:hover .tacts{opacity:1}
+.tile.new{justify-content:center;align-items:center;min-height:118px;border-style:dashed;box-shadow:none;cursor:pointer;color:var(--mut)}
+.tile.new:hover{color:var(--acc);border-color:var(--acc-line);background:var(--acc-soft)}
+
+/* ===== тулбар карточки ===== */
+.toolbar{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.quickadd{display:flex;gap:9px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:6px 6px 6px 12px;box-shadow:var(--sh)}
+.quickadd input{flex:1;border:0;background:transparent;padding:8px 0;outline:none;min-width:0}
+.quickadd input::placeholder{color:var(--mut2)}
+.filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:2px;box-shadow:var(--sh)}
+.seg button{padding:5px 11px;border-radius:7px;font-size:13px;color:var(--mut)}
+.seg button.on{background:var(--acc-soft);color:var(--acc);font-weight:600}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:99px;padding:5px 11px;font-size:12.5px;color:var(--mut);box-shadow:var(--sh)}
+.chip:hover{border-color:var(--acc-line)}
+.chip.on{background:var(--acc-soft);border-color:var(--acc-line);color:var(--acc);font-weight:600}
+.chip.tag.on{background:var(--acc-soft)}
+.chip .n{opacity:.55;margin-left:3px}
+.chip.sync{font-variant-numeric:tabular-nums;border-color:var(--line)}
+.chip.sync.ok{background:var(--acc-soft);border-color:var(--acc-line);color:var(--acc)}
+.chip.sync.work{background:var(--warn-soft);border-color:#f0dcb4;color:var(--warn)}
+.chip.sync.bad{background:var(--dan-soft);border-color:#f3c6c2;color:var(--dan)}
+.sync-rows{display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.sync-row{display:flex;justify-content:space-between;gap:12px;font-size:13.5px}
+.sync-row .k{color:var(--mut)}
+.sync-error{background:var(--dan-soft);color:#7f1d1d;border:1px solid #f3c6c2;border-radius:var(--r-sm);padding:8px 10px;font-size:13px;margin:8px 0}
+.select{border:1px solid var(--line);background:var(--panel);border-radius:9px;padding:6px 9px;font-size:13px;box-shadow:var(--sh);color:var(--mut)}
+
+/* ===== задачи ===== */
+.group{margin:18px 0 8px;display:flex;align-items:center;gap:9px}
+.group h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:var(--mut2)}
+.group .count{font-size:12px;color:var(--mut2)}
+.task{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;box-shadow:var(--sh);transition:border-color .12s,opacity .15s}
+.task:hover{border-color:var(--line2)}
+.task.done{opacity:.55}
+.task.done .ttl{text-decoration:line-through;text-decoration-color:var(--mut2)}
+.task.over{border-left:3px solid var(--hi)}
+.thead{display:flex;gap:11px;align-items:flex-start}
+.check{width:22px;height:22px;border-radius:7px;border:2px solid var(--mut2);display:grid;place-items:center;color:transparent;flex:none;margin-top:1px;transition:background .12s,border-color .12s}
+.check:hover{border-color:var(--acc);background:var(--acc-soft)}
+.check.on{background:var(--acc);border-color:var(--acc);color:#fff}
+[data-theme="dark"] .check.on{color:#04110f}
+.check.sm{width:17px;height:17px;border-radius:5px}
+.body{flex:1;min-width:0}
+.ttl{font-weight:600;line-height:1.4;overflow-wrap:anywhere}
+.meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.badge{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--line2);color:var(--mut);white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.badge.hi{background:var(--hi-soft);color:var(--hi)}
+.badge.over{background:var(--hi-soft);color:var(--hi)}
+.badge.today{background:var(--warn-soft);color:var(--warn)}
+.badge.wait{background:var(--warn-soft);color:var(--warn)}
+.badge.link{background:var(--acc-soft);color:var(--acc)}
+.badge.small{font-size:11px;padding:1px 7px}
+.badge[data-tag]{cursor:pointer}
+.badge[data-tag]:hover{color:var(--acc)}
+.tacts{display:flex;gap:1px;opacity:0;transition:opacity .12s}
+.task:hover .tacts,.task:focus-within .tacts{opacity:1}
+@media(hover:none){.tacts{opacity:1}}
+.note{margin-top:6px;font-size:13px;color:var(--mut);white-space:pre-wrap}
+.linkrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.subs{list-style:none;margin:9px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.subs li{display:flex;gap:8px;align-items:flex-start;font-size:14px}
+.subs .stxt{overflow-wrap:anywhere}
+.subs .done .stxt{text-decoration:line-through;color:var(--mut)}
+.slink{display:inline-flex;align-items:center;gap:4px;max-width:100%;font-size:12px;color:var(--acc);border-bottom:1px dashed var(--acc-line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.spath{font-size:12px;color:var(--mut);font-family:ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
+.subadd{margin-top:8px;display:flex;gap:7px;align-items:center;color:var(--mut);font-size:13px;width:100%}
+.subadd:hover{color:var(--acc)}
+.more{margin-top:7px;font-size:12.5px;color:var(--acc)}
+.empty{background:var(--panel);border:1px dashed var(--line);border-radius:var(--r);padding:34px 20px;text-align:center;color:var(--mut)}
+.empty .big{font-size:30px;margin-bottom:8px}
+.empty h3{font-size:15px;color:var(--txt);margin-bottom:6px}
+.empty p{font-size:13.5px;margin-bottom:14px}
+
+/* ===== модалки ===== */
+.overlay{position:fixed;inset:0;background:rgba(11,15,20,.5);display:grid;place-items:center;padding:16px;z-index:60;overflow:auto;animation:fade .12s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{background:var(--elev);border:1px solid var(--line);border-radius:var(--r-lg);max-width:620px;width:100%;max-height:92vh;overflow:auto;padding:20px;box-shadow:var(--sh-lg)}
+.modal h2{font-size:17px;font-weight:800;margin-bottom:14px}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field label{font-size:12.5px;color:var(--mut)}
+input[type=text],input[type=date],input[type=search],input[type=password],textarea,select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--panel);color:var(--txt);outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft)}
+textarea{min-height:130px;resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-foot{display:flex;gap:8px;justify-content:space-between;margin-top:16px;flex-wrap:wrap}
+.modal-foot .right{display:flex;gap:8px;margin-left:auto}
+.preview{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px;font-size:13px;max-height:170px;overflow:auto;white-space:pre-wrap}
+.sub-editor{display:flex;gap:6px;margin-bottom:6px;align-items:center}
+.sub-editor input{flex:1}
+kbd{background:var(--line2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font:12px ui-monospace,Consolas,monospace}
+
+/* ===== поиск ===== */
+.searchbox{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 12px}
+.searchbox input{border:0;background:transparent;outline:none;flex:1}
+.results{margin-top:12px;display:flex;flex-direction:column;gap:2px;max-height:55vh;overflow:auto}
+.result{display:flex;gap:10px;padding:9px 10px;border-radius:var(--r-sm);align-items:flex-start;cursor:pointer}
+.result:hover,.result.sel{background:var(--acc-soft)}
+.result .rt{font-size:14px;line-height:1.35}
+.result .rp{font-size:12px;color:var(--mut);margin-top:2px}
+.result .ri{margin-top:2px;color:var(--mut)}
+
+/* ===== тосты ===== */
+.toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;display:flex;flex-direction:column;gap:8px;z-index:90;align-items:center}
+.toast{background:#111827;color:#fff;padding:10px 10px 10px 14px;border-radius:11px;font-size:13.5px;box-shadow:var(--sh-lg);display:flex;align-items:center;gap:12px;animation:up .18s ease}
+@keyframes up{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+.toast button{color:#5eead4;font-weight:700;font-size:13px}
+.toast.warn{background:#7c2d12}
+
+.scrim{position:fixed;inset:0;background:rgba(11,15,20,.45);z-index:25;display:none}
+.hint{font-size:12px;color:var(--mut2)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.hidden{display:none !important}
+
+@media(max-width:860px){
+  .menu-btn{display:grid}
+  .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:30;transform:translateX(-104%);transition:transform .2s ease;box-shadow:var(--sh-lg)}
+  .sidebar.open{transform:none}
+  .app.drawer .scrim{display:block}
+  .content{padding:16px 14px 90px}
+  .topbar{padding:9px 12px}
+  .page-head h1{font-size:20px}
+  .row2{grid-template-columns:1fr}
+  .tacts{opacity:1}
+}
+</style>
+
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Задачи">
+<meta name="mobile-web-app-capable" content="yes">
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16v4z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 3v12M7 11l5 5 5-5M4 21h16"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 21V9M7 13l5-5 5 5M4 3h16"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 115 .5c0 1.5-2.5 2-2.5 3.5"/><circle cx="12" cy="17" r=".6" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></symbol>
+  <symbol id="i-today" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="5"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007 0l2-2a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-2 2a5 5 0 007 7l1-1"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 000-8 6 6 0 00-11.6-1.5A4.5 4.5 0 007 18z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h9a6 6 0 010 12H7"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4h9l-1 3h6l-2 5 2 5h-6l-1-3H5"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="dot"></span> Задачи</div>
+    <div class="side-scroll" id="sidebarNav"></div>
+    <div class="side-foot">
+      <button class="nav-item" data-action="toggleTheme" id="themeBtn" title="Тема"></button>
+      <button class="nav-item" data-action="openSync" title="Облако и синхронизация"><svg class="i"><use href="#i-cloud"/></svg></button>
+      <button class="nav-item" data-action="help" title="Горячие клавиши"><svg class="i"><use href="#i-help"/></svg></button>
+      <button class="nav-item" data-action="exportJson" title="Выгрузить JSON"><svg class="i"><use href="#i-down"/></svg></button>
+      <button class="nav-item" data-action="importJsonClick" title="Загрузить JSON"><svg class="i"><use href="#i-up"/></svg></button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <button class="icon-btn menu-btn" data-action="menu" aria-label="Меню"><svg class="i"><use href="#i-menu"/></svg></button>
+      <div class="crumbs" id="crumbs"></div>
+      <div class="spacer"></div>
+      <button class="chip sync" id="syncChip" data-action="openSync" title="Облако">☁ …</button>
+      <button class="btn ghost sm" data-action="openSearch" title="Поиск (Ctrl+K)"><svg class="i sm"><use href="#i-search"/></svg> Поиск</button>
+      <button class="btn pri sm" id="addBtn" data-action="add"><svg class="i sm"><use href="#i-plus"/></svg> <span id="addLabel">Задача</span></button>
+    </div>
+    <div class="content" id="view"></div>
+  </div>
+</div>
+
+<div class="scrim" data-action="closeDrawer"></div>
+<div id="modalRoot"></div>
+<div class="toasts" id="toasts"></div>
+<input type="file" id="jsonFile" accept=".json,application/json" class="hidden">
+
+<script>
+/* ============================================================================
+   1. ДАННЫЕ: стартовый список, парсер текста, авто-теги
+   ========================================================================== */
+const SEED_PROJECT = 'Мои задачи';
+const SEED_CARD = 'Сегодня';
+const SEED_TEXT = String.raw`1. Разобрать входящие
+- Ответить на письма
+- Разложить задачи по карточкам
+2. Спланировать неделю
+- Выбрать три главные задачи
+- Забронировать время в календаре
+3. Проверить дедлайны
+- Просмотреть просроченные
+- Уточнить сроки у коллег
+4. Сделать резервную копию
+- Экспорт JSON
+- Положить файл в облако
+5. Прочитать инструкцию
+- Открыть раздел «Горячие клавиши»`;
+
+const TAG_WORDS = [
+  ['письмо', /письм|почт/i], ['звонок', /звон|позвон/i], ['встреча', /встреч|созвон/i],
+  ['вопрос', /вопрос|уточн/i], ['документы', /документ|договор/i], ['отчёт', /отчёт|отчет|сводк/i],
+  ['тесты', /тест/i], ['план', /план/i], ['закупка', /закуп/i], ['срочно', /срочно|asap/i]
+];
+
+function normalizeText(t) {
+  const raw = String(t || '');
+  const waiting = /ожида(ется|ем|ние)|ждём|ждем|жду ответа/i.test(raw);
+
+  // вся строка — путь: диск (Z:\…) или сетевой (\\server\share)
+  if (/^(?:[A-Za-z]:[\\/]|\\\\)/.test(raw.trim())) {
+    const full = raw.trim();
+    const base = full.split(/[\\/]/).filter(Boolean).pop() || full;
+    return { text: base, links: [], paths: [full], waiting };
+  }
+
+  // e1c:// вырезаем в чип (длинный и браузером не открывается), остальные ссылки оставляем в тексте
+  const links = raw.match(/e1c:\/\/\S+/g) || [];
+  const withoutLinks = raw.replace(/e1c:\/\/\S+/g, ' ');
+  const PATH_RE = /(?<![A-Za-z0-9])(?:[A-Za-z]:[\\/]|\\\\)[^\s]+/g;
+  const paths = withoutLinks.match(PATH_RE) || [];
+  let clean = withoutLinks
+    .replace(PATH_RE, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  if (!clean && links.length) clean = 'Ссылка на пожелание';
+  return { text: clean, links, paths, waiting };
+}
+function detectTags(text) {
+  const found = [];
+  for (const [label, re] of TAG_WORDS) if (re.test(text)) found.push(label);
+  return found;
+}
+
+/* ============================================================================
+   2. УТИЛИТЫ
+   ========================================================================== */
+const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const plural = (n, a, b, c) => { const x = Math.abs(n) % 100, y = x % 10; return x > 10 && x < 20 ? c : (y > 1 && y < 5 ? b : (y === 1 ? a : c)); };
+const icon = (name, cls) => '<svg class="i ' + (cls || '') + '"><use href="#i-' + name + '"/></svg>';
+
+/* ссылки и пути в тексте: http(s) — настоящий <a>, остальное — чип с копированием */
+function shortUrl(u) { return u.length > 52 ? u.slice(0, 49) + '…' : u; }
+function linkChip(url) {
+  if (/^https?:\/\//i.test(url)) {
+    return '<a class="slink" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" title="' + esc(url) + '">' +
+      icon('link', 'sm') + ' ' + esc(shortUrl(url)) + '</a>';
+  }
+  const label = /^e1c:\/\//i.test(url) ? url.replace(/^e1c:\/\/[^#]*#?/i, 'e1c://…') : shortUrl(url);
+  return '<a class="slink" href="#" data-copy="' + esc(url) + '" title="' + esc(url) + '">' +
+    icon('link', 'sm') + ' ' + esc(label) + '</a>';
+}
+function pathChip(p) {
+  return '<span class="spath" data-copy="' + esc(p) + '" title="клик — скопировать">' + esc(p) + '</span>';
+}
+function linkify(text) {
+  const s = String(text == null ? '' : text);
+  const re = /https?:\/\/[^\s<>"']+/gi;
+  let out = '', last = 0, m;
+  while ((m = re.exec(s))) {
+    out += esc(s.slice(last, m.index));
+    const url = m[0];
+    out += '<a class="slink" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' + esc(shortUrl(url)) + '</a>';
+    last = m.index + url.length;
+  }
+  out += esc(s.slice(last));
+  return out;
+}
+
+const TODAY = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
+function isoDate(d) { const x = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return x.toISOString().slice(0, 10); }
+function parseISO(s) { const [y, m, d] = String(s || '').split('-').map(Number); return (y && m && d) ? new Date(y, m - 1, d) : null; }
+function fmtShort(iso) { const d = parseISO(iso); return d ? d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' }) : ''; }
+function daysUntil(iso) { const d = parseISO(iso); if (!d) return null; return Math.round((d - TODAY) / 86400000); }
+function dueInfo(iso) {
+  if (!iso) return null;
+  const n = daysUntil(iso);
+  if (n === null) return null;
+  if (n < 0) return { cls: 'over', text: 'просрочено на ' + (-n) + ' ' + plural(-n, 'день', 'дня', 'дней') };
+  if (n === 0) return { cls: 'today', text: 'сегодня' };
+  if (n === 1) return { cls: 'today', text: 'завтра' };
+  if (n <= 7) return { cls: '', text: 'через ' + n + ' ' + plural(n, 'день', 'дня', 'дней') };
+  return { cls: '', text: fmtShort(iso) };
+}
+
+/* ============================================================================
+   3. МОДЕЛЬ
+   ========================================================================== */
+const makeProject = (name, note) => ({ id: uid('p'), name: name || 'Без названия', note: note || '', createdAt: Date.now() });
+const makeCard = (projectId, name, date) => ({ id: uid('c'), projectId, name: name || 'Список', date: date || '', createdAt: Date.now() });
+function makeTask(cardId, title) {
+  const n = normalizeText(title);
+  return {
+    id: uid('t'), cardId, title: n.text || title, note: '', priority: 'normal',
+    due: '', done: false, doneAt: null, subs: [], tags: detectTags(title),
+    links: n.links, paths: n.paths, createdAt: Date.now()
+  };
+}
+
+// Приводит запись к полному виду: данные из старых версий и чужих JSON
+// не должны ломать рендер отсутствующими полями.
+function normalizeTask(t, cardId) {
+  const src = (t && typeof t === 'object') ? t : {};
+  const out = {
+    id: src.id || uid('t'),
+    cardId: cardId || src.cardId || '',
+    title: String(src.title || ''),
+    note: String(src.note || ''),
+    priority: ['high', 'normal', 'low'].indexOf(src.priority) >= 0 ? src.priority : 'normal',
+    due: src.due || '',
+    done: !!src.done,
+    doneAt: src.doneAt || null,
+    createdAt: Number(src.createdAt) || Date.now(),
+    subs: [], tags: [], links: [], paths: []
+  };
+  out.subs = (Array.isArray(src.subs) ? src.subs : []).map(s => ({
+    id: (s && s.id) || uid('s'),
+    text: String((s && s.text) || ''),
+    done: !!(s && s.done),
+    waiting: !!(s && s.waiting),
+    links: Array.isArray(s && s.links) ? s.links : [],
+    paths: Array.isArray(s && s.paths) ? s.paths : []
+  })).filter(s => s.text);
+  out.tags = (Array.isArray(src.tags) ? src.tags : []).filter(Boolean);
+  out.links = (Array.isArray(src.links) ? src.links : []).filter(Boolean);
+  out.paths = (Array.isArray(src.paths) ? src.paths : []).filter(Boolean);
+  out.updatedAt = Number(src.updatedAt) || 0;
+  out.deletedAt = src.deletedAt || null;
+  return out;
+}
+
+function normalizeCard(c) {
+  const src = (c && typeof c === 'object') ? c : {};
+  return {
+    id: src.id || uid('c'),
+    projectId: src.projectId || '',
+    name: String(src.name || 'Список'),
+    date: String(src.date || ''),
+    createdAt: Number(src.createdAt) || Date.now(),
+    updatedAt: Number(src.updatedAt) || 0,
+    deletedAt: src.deletedAt || null
+  };
+}
+
+function normalizeProject(p) {
+  const src = (p && typeof p === 'object') ? p : {};
+  return {
+    id: src.id || uid('p'),
+    name: String(src.name || 'Без названия'),
+    note: String(src.note || ''),
+    createdAt: Number(src.createdAt) || Date.now(),
+    updatedAt: Number(src.updatedAt) || 0,
+    deletedAt: src.deletedAt || null
+  };
+}
+function parseImport(text, cardId) {
+  const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
+  const tasks = [];
+  let cur = null;
+  const numRe = /^\s*(\d{1,3})[.)]\s*(.+)$/;
+  const dashRe = /^\s*[-–—•*]\s*(.+)$/;
+
+  for (const raw of lines) {
+    if (!raw.trim()) continue;
+    let m;
+    if ((m = raw.match(numRe))) { cur = makeTask(cardId, m[2].trim()); tasks.push(cur); continue; }
+    if ((m = raw.match(dashRe))) {
+      const n = normalizeText(m[1].trim());
+      if (cur) {
+        cur.subs.push({ id: uid('s'), text: n.text, links: n.links, paths: n.paths, waiting: n.waiting, done: false });
+        cur.tags = Array.from(new Set(cur.tags.concat(detectTags(m[1]))));
+      } else { cur = makeTask(cardId, n.text); tasks.push(cur); }
+      continue;
+    }
+    if (cur) cur.note = (cur.note ? cur.note + '\n' : '') + raw.trim();
+    else { cur = makeTask(cardId, raw.trim()); tasks.push(cur); }
+  }
+  tasks.forEach(t => {
+    if (/срочно|оперативно|asap|горит|критично/i.test(t.title)) t.priority = 'high';
+    if (t.subs.length) t.tags = Array.from(new Set(t.tags.concat(detectTags(t.subs.map(s => s.text).join(' ')))));
+  });
+  return tasks;
+}
+
+/* ============================================================================
+   4. ХРАНИЛИЩЕ (+ миграции)
+   ========================================================================== */
+const LS_V3 = 'todoAppV3';
+const LS_V2 = 'todoAppV2';
+const LS_V1 = 'todoListV1';
+
+const state = {
+  version: 3,
+  projects: [], cards: [], tasks: [],
+  route: { view: 'today', projectId: null, cardId: null },
+  filter: 'active', sort: 'smart', query: '', tag: null, quick: null,
+  collapsed: {}, settings: { theme: 'light' }, ts: 0, seeded: false
+};
+
+let storeOk = true, saveTimer = null, searchTimer = null, dirty = false;
+
+function buildSeed() {
+  const p = makeProject(SEED_PROJECT, 'Демонстрационные задачи — можно удалить или заменить своими');
+  const c = makeCard(p.id, SEED_CARD, '');
+  state.projects = [p];
+  state.cards = [c];
+  state.tasks = parseImport(SEED_TEXT, c.id);
+  state.seeded = true;
+}
+
+function migrateFromV2(data) {
+  state.projects = (data.projects || []).map(normalizeProject);
+  state.cards = (data.cards || []).map(normalizeCard);
+  state.tasks = (data.tasks || []).map(t => normalizeTask(t));
+  return true;
+}
+function migrateFromV1(v1) {
+  if (!v1 || !Array.isArray(v1.tasks) || !v1.tasks.length) return false;
+  const p = makeProject(v1.listName || 'Проект', '');
+  const c = makeCard(p.id, (v1.listSub || 'Список задач').replace(/^./, ch => ch.toUpperCase()), '');
+  state.projects = [p];
+  state.cards = [c];
+  state.tasks = v1.tasks.map(t => normalizeTask(t, c.id));
+  return true;
+}
+
+function load() {
+  const read = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+  const v3 = read(LS_V3);
+  if (v3 && v3.version === 3 && Array.isArray(v3.projects)) {
+    state.projects = v3.projects.map(normalizeProject);
+    state.cards = (v3.cards || []).map(normalizeCard);
+    state.tasks = (v3.tasks || []).map(t => normalizeTask(t));
+    state.filter = v3.filter || 'active';
+    state.sort = v3.sort || 'smart';
+    state.collapsed = v3.collapsed || {};
+    state.settings = Object.assign({ theme: 'light' }, v3.settings || {});
+    return;
+  }
+  const v2 = read(LS_V2);
+  if (v2 && v2.version === 2 && Array.isArray(v2.projects)) { migrateFromV2(v2); return; }
+  if (migrateFromV1(read(LS_V1))) return;
+  buildSeed();
+}
+
+function flushSave() {
+  if (!storeOk) return;
+  clearTimeout(saveTimer); saveTimer = null;
+  try {
+    localStorage.setItem(LS_V3, JSON.stringify({
+      version: 3, projects: state.projects, cards: state.cards, tasks: state.tasks,
+      filter: state.filter, sort: state.sort, collapsed: state.collapsed, settings: state.settings
+    }));
+    dirty = false;
+  } catch (e) { storeOk = false; }
+}
+function scheduleSave() { dirty = true; clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, 250); }
+
+/* ============================================================================
+   5. ВЫБОРКИ И СТАТИСТИКА
+   ========================================================================== */
+function projectById(id) { return state.projects.find(p => p.id === id && !p.deletedAt); }
+function cardById(id) { return state.cards.find(c => c.id === id && !c.deletedAt); }
+const cardsOf = pid => state.cards.filter(c => c.projectId === pid && !c.deletedAt).sort((a, b) => b.createdAt - a.createdAt);
+const tasksOf = cid => state.tasks.filter(t => t.cardId === cid && !t.deletedAt);
+const taskById = id => state.tasks.find(t => t.id === id && !t.deletedAt);
+const subsDone = t => (Array.isArray(t.subs) ? t.subs : []).filter(s => s.done).length;
+const taskDone = t => !!t.done || ((t.subs || []).length > 0 && subsDone(t) === (t.subs || []).length);
+
+let statsCache = {};
+function clearStats() { statsCache = {}; }
+function cardStats(cid) {
+  if (statsCache['c' + cid]) return statsCache['c' + cid];
+  const list = tasksOf(cid);
+  const s = {
+    tasks: list.length, done: list.filter(taskDone).length,
+    subs: list.reduce((a, t) => a + (t.subs || []).length, 0),
+    subsDone: list.reduce((a, t) => a + subsDone(t), 0)
+  };
+  statsCache['c' + cid] = s;
+  return s;
+}
+function projectStats(pid) {
+  if (statsCache['p' + pid]) return statsCache['p' + pid];
+  const cids = cardsOf(pid).map(c => c.id);
+  const list = state.tasks.filter(t => cids.includes(t.cardId) && !t.deletedAt);
+  const s = {
+    cards: cids.length, tasks: list.length, done: list.filter(taskDone).length,
+    overdue: list.filter(t => !taskDone(t) && t.due && daysUntil(t.due) < 0).length,
+    subs: list.reduce((a, t) => a + (t.subs || []).length, 0),
+    subsDone: list.reduce((a, t) => a + subsDone(t), 0)
+  };
+  statsCache['p' + pid] = s;
+  return s;
+}
+function totalStats() {
+  if (statsCache.total) return statsCache.total;
+  const projects = state.projects.filter(p => !p.deletedAt);
+  const cards = state.cards.filter(c => !c.deletedAt);
+  const tasks = state.tasks.filter(t => !t.deletedAt);
+  const s = {
+    projects: projects.length, cards: cards.length, tasks: tasks.length,
+    done: tasks.filter(taskDone).length,
+    overdue: tasks.filter(t => !taskDone(t) && t.due && daysUntil(t.due) < 0).length
+  };
+  statsCache.total = s;
+  return s;
+}
+function activeOverdue(pid) {
+  const cids = cardsOf(pid).map(c => c.id);
+  return state.tasks.filter(t => cids.includes(t.cardId) && !t.deletedAt && !taskDone(t) && t.due && daysUntil(t.due) < 0).length;
+}
+
+function sortTasks(list) {
+  const rank = { high: 0, normal: 1, low: 2 };
+  const dueRank = t => (t.due ? daysUntil(t.due) : 9999);
+  const copy = list.slice();
+  if (state.sort === 'due') return copy.sort((a, b) => dueRank(a) - dueRank(b) || (rank[a.priority] - rank[b.priority]));
+  if (state.sort === 'added') return copy.sort((a, b) => b.createdAt - a.createdAt);
+  return copy.sort((a, b) => (taskDone(a) - taskDone(b)) || (rank[a.priority] - rank[b.priority]) || (dueRank(a) - dueRank(b)) || (a.createdAt - b.createdAt));
+}
+
+function visibleTasks(cid) {
+  const q = state.query.trim().toLowerCase();
+  let list = tasksOf(cid);
+  if (state.filter === 'active') list = list.filter(t => !taskDone(t));
+  if (state.filter === 'done') list = list.filter(t => taskDone(t));
+  if (state.tag) list = list.filter(t => (t.tags || []).includes(state.tag));
+  if (state.quick === 'over') list = list.filter(t => !taskDone(t) && t.due && daysUntil(t.due) < 0);
+  if (state.quick === 'today') list = list.filter(t => !taskDone(t) && t.due && daysUntil(t.due) === 0);
+  if (state.quick === 'week') list = list.filter(t => !taskDone(t) && t.due && daysUntil(t.due) >= 0 && daysUntil(t.due) <= 7);
+  if (state.quick === 'hot') list = list.filter(t => !taskDone(t) && t.priority === 'high');
+  if (q) list = list.filter(t => (t.title + ' ' + (t.note || '') + ' ' + t.subs.map(s => s.text).join(' ')).toLowerCase().includes(q));
+  return sortTasks(list);
+}
+function allTags(cid) {
+  const m = {};
+  tasksOf(cid).forEach(t => (t.tags || []).forEach(tag => { m[tag] = (m[tag] || 0) + 1; }));
+  return Object.entries(m).sort((a, b) => b[1] - a[1]);
+}
+
+/* «Сегодня»: все задачи с дедлайном, сгруппированные по срочности */
+function todayBuckets() {
+  const over = [], today = [], week = [];
+  state.tasks.forEach(t => {
+    if (t.deletedAt) return;
+    if (taskDone(t) || !t.due) return;
+    const n = daysUntil(t.due);
+    if (n === null) return;
+    if (n < 0) over.push(t);
+    else if (n === 0) today.push(t);
+    else if (n <= 7) week.push(t);
+  });
+  const byDue = (a, b) => daysUntil(a.due) - daysUntil(b.due);
+  return { over: over.sort(byDue), today: today.sort(byDue), week: week.sort(byDue) };
+}
+function noDueCount() { return state.tasks.filter(t => !t.deletedAt && !taskDone(t) && !t.due).length; }
+
+function globalSearch(q) {
+  const s = String(q || '').trim().toLowerCase();
+  if (s.length < 2) return [];
+  const out = [];
+  state.tasks.forEach(t => {
+    if (t.deletedAt) return;
+    const hay = (t.title + ' ' + (t.note || '') + ' ' + t.subs.map(x => x.text).join(' ')).toLowerCase();
+    if (hay.includes(s)) out.push(t);
+  });
+  return out.slice(0, 40);
+}
+
+/* ============================================================================
+   6. МАРШРУТИЗАЦИЯ
+   ========================================================================== */
+function parseHash() {
+  const h = String(location.hash || '').replace(/^#\/?/, '');
+  const parts = h.split('/').filter(Boolean);
+  const r = { view: 'today', projectId: null, cardId: null };
+  if (parts[0] === 'projects') r.view = 'projects';
+  else if (parts[0] === 'p' && parts[1]) {
+    r.view = 'project'; r.projectId = parts[1];
+    if (parts[2] === 'c' && parts[3]) { r.view = 'card'; r.cardId = parts[3]; }
+  } else r.view = 'today';
+  state.route = r;
+  return r;
+}
+function go(hash) { if (String(location.hash) === hash) render(); else location.hash = hash; }
+
+/* ============================================================================
+   7. ОТРИСОВКА
+   ========================================================================== */
+let lastKey = '';
+
+function crumbsHtml() {
+  const r = state.route;
+  if (r.view === 'today') return '<span class="cur">' + icon('today', 'sm') + ' Сегодня</span>';
+  if (r.view === 'projects') return '<span class="cur">' + icon('folder', 'sm') + ' Все проекты</span>';
+  const p = projectById(r.projectId);
+  if (!p) return '<a href="#/">Сегодня</a>';
+  const parts = ['<a href="#/">Сегодня</a>', '<span>/</span>'];
+  if (r.view === 'project') parts.push('<span class="cur">' + esc(p.name) + '</span>');
+  else {
+    const c = cardById(r.cardId);
+    parts.push('<a href="#/p/' + p.id + '">' + esc(p.name) + '</a>', '<span>/</span>');
+    parts.push('<span class="cur">' + esc(c ? c.name : 'Карточка') + '</span>');
+  }
+  return parts.join(' ');
+}
+
+function renderSidebar() {
+  const r = state.route;
+  const nav = [];
+  nav.push('<button class="nav-item ' + (r.view === 'today' ? 'active' : '') + '" data-nav="#/">' +
+    icon('today') + '<span class="name">Сегодня</span>' +
+    (totalStats().overdue ? '<span class="alert" title="есть просроченные"></span>' : '') + '</button>');
+  nav.push('<button class="nav-item ' + (r.view === 'projects' ? 'active' : '') + '" data-nav="#/projects">' +
+    icon('folder') + '<span class="name">Все проекты</span><span class="cnt">' + totalStats().projects + '</span></button>');
+
+  nav.push('<div class="side-label">Проекты</div>');
+  state.projects.forEach(p => {
+    const s = projectStats(p.id);
+    const active = (r.projectId === p.id);
+    nav.push('<button class="nav-item ' + (active ? 'active' : '') + '" data-nav="#/p/' + p.id + '">' +
+      icon('folder') + '<span class="name">' + esc(p.name) + '</span>' +
+      (activeOverdue(p.id) ? '<span class="alert"></span>' : '<span class="cnt">' + (s.tasks - s.done) + '</span>') + '</button>');
+  });
+  nav.push('<button class="nav-item" data-action="newProject">' + icon('plus') + '<span class="name">Новый проект</span></button>');
+  document.getElementById('sidebarNav').innerHTML = nav.join('');
+
+  const tb = document.getElementById('themeBtn');
+  tb.innerHTML = (state.settings.theme === 'dark' ? icon('sun') : icon('moon')) + '<span class="name">' + (state.settings.theme === 'dark' ? 'Светлая тема' : 'Тёмная тема') + '</span>';
+}
+
+function renderTopbar() {
+  document.getElementById('crumbs').innerHTML = crumbsHtml();
+  const r = state.route;
+  const lbl = document.getElementById('addLabel');
+  const btn = document.getElementById('addBtn');
+  if (r.view === 'card') { lbl.textContent = 'Задача'; btn.dataset.action = 'newTask'; }
+  else if (r.view === 'project') { lbl.textContent = 'Карточка'; btn.dataset.action = 'newCard'; }
+  else { lbl.textContent = 'Проект'; btn.dataset.action = 'newProject'; }
+}
+
+function renderView() {
+  const r = state.route;
+  if (r.view === 'today') renderToday();
+  else if (r.view === 'projects') renderProjects();
+  else if (r.view === 'project') renderProject();
+  else renderCard();
+}
+
+/* ---------- Сегодня ---------- */
+function renderToday() {
+  const b = todayBuckets();
+  const s = totalStats();
+  const total = b.over.length + b.today.length + b.week.length;
+  const head = '<div class="page-head"><div><h1>Сегодня</h1>' +
+    '<div class="page-sub">' + (total ? 'Задач в фокусе: ' + total : 'На сегодня срочного нет') +
+    ' · без срока: ' + noDueCount() + '</div></div>' +
+    '<div class="head-actions"><button class="btn ghost sm" data-action="openSearch">' + icon('search', 'sm') + ' Поиск</button></div></div>';
+
+  let body = '';
+  if (!total) {
+    body = '<div class="empty"><div class="big">🎉</div><h3>Ничего не горит</h3>' +
+      '<p>Задачи с дедлайном появятся здесь. Добавь срок задаче в карточке — и она попадёт в фокус.</p></div>';
+  } else {
+    const group = (title, list, cls) => list.length ? (
+      '<div class="group"><h2>' + title + '</h2><span class="count">' + list.length + '</span></div>' +
+      list.map(t => renderTask(t, -1, true)).join('')
+    ) : '';
+    body = group('Просрочено', b.over, 'over') + group('Сегодня', b.today) + group('На неделе', b.week);
+  }
+  document.getElementById('view').innerHTML = head + body;
+}
+
+/* ---------- Проекты ---------- */
+function renderProjects() {
+  const s = totalStats();
+  const head = '<div class="page-head"><div><h1>Все проекты</h1>' +
+    '<div class="page-sub">' + s.projects + ' ' + plural(s.projects, 'проект', 'проекта', 'проектов') +
+    ' · ' + s.tasks + ' ' + plural(s.tasks, 'задача', 'задачи', 'задач') + ' · выполнено ' + s.done + '</div></div></div>';
+
+  const tiles = state.projects.map(p => {
+    const st = projectStats(p.id);
+    const pct = st.tasks ? Math.round(st.done / st.tasks * 100) : 0;
+    return '<div class="tile">' +
+      '<a href="#/p/' + p.id + '"><div class="tname">' + esc(p.name) + '</div>' +
+      '<div class="tmeta">' + st.cards + ' ' + plural(st.cards, 'карточка', 'карточки', 'карточек') +
+        ' · ' + st.tasks + ' ' + plural(st.tasks, 'задача', 'задачи', 'задач') + ' · выполнено ' + st.done + '</div></a>' +
+      '<div class="meter"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="tacts">' +
+        '<button class="icon-btn" data-action="editProject" data-id="' + p.id + '" title="Переименовать">' + icon('pencil', 'sm') + '</button>' +
+        '<button class="icon-btn" data-action="delProject" data-id="' + p.id + '" title="Удалить">' + icon('trash', 'sm') + '</button>' +
+      '</div></div>';
+  }).join('');
+
+  document.getElementById('view').innerHTML = head +
+    '<div class="grid">' + tiles +
+    '<button class="tile new" data-action="newProject"><div>' + icon('plus') + '</div><div style="margin-top:6px">Новый проект</div></button>' +
+    '</div>';
+}
+
+/* ---------- Карточки проекта ---------- */
+function renderProject() {
+  const p = projectById(state.route.projectId);
+  if (!p) { go('#/projects'); return; }
+  const st = projectStats(p.id);
+  const cards = cardsOf(p.id);
+  const pct = st.tasks ? Math.round(st.done / st.tasks * 100) : 0;
+
+  const head = '<div class="page-head"><div><h1>' + esc(p.name) + '</h1>' +
+    (p.note ? '<div class="page-sub">' + esc(p.note) + '</div>' : '') + '</div>' +
+    '<div class="head-actions">' +
+      '<button class="btn sm" data-action="editProject" data-id="' + p.id + '">' + icon('pencil', 'sm') + ' Проект</button>' +
+      '<button class="btn pri sm" data-action="newCard">' + icon('plus', 'sm') + ' Карточка</button>' +
+    '</div></div>' +
+    '<div class="toolbar"><div class="stats"><span>Задач: <b>' + st.done + '</b> из ' + st.tasks + '</span>' +
+      '<div class="meter" style="width:150px"><i style="width:' + pct + '%"></i></div></div></div>';
+
+  const tiles = cards.map(c => {
+    const s = cardStats(c.id);
+    const cpct = s.tasks ? Math.round(s.done / s.tasks * 100) : 0;
+    return '<div class="tile">' +
+      '<a href="#/p/' + p.id + '/c/' + c.id + '"><div class="tname">' + esc(c.name) + '</div>' +
+      '<div class="tmeta">' + (c.date ? esc(c.date) + ' · ' : '') + s.tasks + ' ' + plural(s.tasks, 'задача', 'задачи', 'задач') +
+        ' · выполнено ' + s.done + (s.subs ? ' · пунктов ' + s.subsDone + '/' + s.subs : '') + '</div></a>' +
+      '<div class="meter"><i style="width:' + cpct + '%"></i></div>' +
+      '<div class="tacts">' +
+        '<button class="icon-btn" data-action="duplicateCard" data-id="' + c.id + '" title="Дублировать как шаблон">' + icon('copy', 'sm') + '</button>' +
+        '<button class="icon-btn" data-action="editCard" data-id="' + c.id + '" title="Переименовать">' + icon('pencil', 'sm') + '</button>' +
+        '<button class="icon-btn" data-action="delCard" data-id="' + c.id + '" title="Удалить">' + icon('trash', 'sm') + '</button>' +
+      '</div></div>';
+  }).join('');
+
+  document.getElementById('view').innerHTML = head +
+    (cards.length
+      ? '<div class="grid">' + tiles + '<button class="tile new" data-action="newCard"><div>' + icon('plus') + '</div><div style="margin-top:6px">Новая карточка</div></button></div>'
+      : '<div class="empty"><div class="big">🗂️</div><h3>Пока нет карточек</h3><p>Карточка — это список задач за дату: «Список от 02.11.2026».</p><button class="btn pri sm" data-action="newCard">' + icon('plus', 'sm') + ' Создать карточку</button></div>');
+}
+
+/* ---------- Карточка: задачи ---------- */
+function renderCard() {
+  const c = cardById(state.route.cardId);
+  if (!c) { go('#/projects'); return; }
+  const s = cardStats(c.id);
+  const p = projectById(c.projectId);
+  const pct = s.tasks ? Math.round(s.done / s.tasks * 100) : 0;
+  const tags = allTags(c.id);
+
+  const head = '<div class="page-head"><div><h1>' + esc(c.name) + '</h1>' +
+    '<div class="page-sub">' + (c.date ? esc(c.date) + ' · ' : '') + (p ? esc(p.name) + ' · ' : '') +
+      s.done + ' из ' + s.tasks + ' · пунктов ' + s.subsDone + '/' + s.subs + '</div></div>' +
+    '<div class="head-actions">' +
+      '<button class="btn ghost sm" data-action="importText">' + icon('up', 'sm') + ' Импорт</button>' +
+      '<button class="btn sm" data-action="editCard" data-id="' + c.id + '">' + icon('pencil', 'sm') + ' Карточка</button>' +
+    '</div></div>';
+
+  const quick = '<div class="quickadd">' + icon('plus', 'sm') +
+    '<input id="quickAdd" placeholder="Добавить задачу и нажать Enter… (можно вставить список строк)" autocomplete="off">' +
+    '<button class="btn pri sm" data-action="quickAdd">Добавить</button></div>';
+
+  const filters = '<div class="filters">' +
+    '<div class="searchbox" style="flex:1;min-width:190px;padding:4px 10px">' + icon('search', 'sm') +
+      '<input id="cardSearch" type="search" placeholder="Поиск в карточке…" value="' + esc(state.query) + '" autocomplete="off">' +
+    '</div>' +
+    '<div class="seg">' +
+      '<button data-filter="active" class="' + (state.filter === 'active' ? 'on' : '') + '">Активные</button>' +
+      '<button data-filter="all" class="' + (state.filter === 'all' ? 'on' : '') + '">Все</button>' +
+      '<button data-filter="done" class="' + (state.filter === 'done' ? 'on' : '') + '">Готовые</button>' +
+    '</div>' +
+    '<button class="chip ' + (state.quick === 'over' ? 'on' : '') + '" data-quick="over">Просрочено</button>' +
+    '<button class="chip ' + (state.quick === 'today' ? 'on' : '') + '" data-quick="today">Сегодня</button>' +
+    '<button class="chip ' + (state.quick === 'week' ? 'on' : '') + '" data-quick="week">7 дней</button>' +
+    '<button class="chip ' + (state.quick === 'hot' ? 'on' : '') + '" data-quick="hot">' + icon('flag', 'sm') + ' Срочные</button>' +
+    '<select class="select" id="sortSel" title="Сортировка">' +
+      '<option value="smart"' + (state.sort === 'smart' ? ' selected' : '') + '>По важности</option>' +
+      '<option value="due"' + (state.sort === 'due' ? ' selected' : '') + '>По сроку</option>' +
+      '<option value="added"' + (state.sort === 'added' ? ' selected' : '') + '>Новые сверху</option>' +
+    '</select>' +
+    '<div class="meter" style="width:110px"><i style="width:' + pct + '%"></i></div>' +
+  '</div>';
+
+  const tagsRow = tags.length ? '<div class="filters">' + tags.map(([tag, n]) =>
+    '<button class="chip tag ' + (state.tag === tag ? 'on' : '') + '" data-tag="' + esc(tag) + '">' + esc(tag) +
+      '<span class="n">' + n + '</span></button>').join('') +
+    (state.tag ? '<button class="chip" data-tag="">сбросить</button>' : '') + '</div>' : '';
+
+  document.getElementById('view').innerHTML = head + '<div class="toolbar">' + quick + filters + tagsRow + '</div>' +
+    '<div id="taskList"></div>';
+
+  renderTaskList();
+  const qa = document.getElementById('quickAdd');
+  if (qa) {
+    qa.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); quickAddFromInput(); }
+    });
+  }
+  const cs = document.getElementById('cardSearch');
+  if (cs) {
+    cs.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => { state.query = cs.value; renderTaskList(); scheduleSave(); }, 140);
+    });
+  }
+  const sel = document.getElementById('sortSel');
+  if (sel) sel.onchange = e => { state.sort = e.target.value; clearStats(); renderTaskList(); scheduleSave(); };
+}
+
+function renderTaskList() {
+  const box = document.getElementById('taskList');
+  if (!box) return;
+  const cid = state.route.cardId;
+  const list = visibleTasks(cid);
+
+  if (!list.length) {
+    box.innerHTML = '<div class="empty"><div class="big">' +
+      (state.query || state.tag || state.quick ? '🔍' : (state.filter === 'done' ? '📭' : '✅')) + '</div>' +
+      '<h3>' + (state.query || state.tag || state.quick ? 'Ничего не найдено' : (state.filter === 'done' ? 'Пока ничего не закрыто' : 'Все задачи закрыты')) + '</h3>' +
+      '<p>' + (state.query || state.tag || state.quick ? 'Сбрось поиск или фильтры — кнопка ниже.' : 'Добавь задачу в поле выше или вставь список текстом.') + '</p>' +
+      (state.query || state.tag || state.quick ? '<button class="btn sm" data-action="resetFilters">Сбросить фильтры</button>' : '') +
+      '</div>';
+    return;
+  }
+
+  const html = list.map((t, i) => renderTask(t, i, false)).join('');
+  box.innerHTML = html;
+  // состояние «показать все подпункты»
+  box.querySelectorAll('[data-more]').forEach(btn => {
+    btn.onclick = () => { state.collapsed[btn.dataset.more] = false; renderTaskList(); };
+  });
+  const subInputs = box.querySelectorAll('.subnew');
+  subInputs.forEach(inp => {
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && inp.value.trim()) { e.preventDefault(); addSubFromInput(inp.dataset.for, inp.value); }
+      if (e.key === 'Escape') inp.blur();
+    });
+  });
+}
+
+function taskMeta(t, showPlace) {
+  const out = [];
+  if (t.priority === 'high') out.push('<span class="badge hi">' + icon('flag', 'sm') + ' срочно</span>');
+  const di = dueInfo(t.due);
+  if (di && !taskDone(t)) out.push('<span class="badge ' + di.cls + '">' + icon('cal', 'sm') + ' ' + di.text + '</span>');
+  else if (t.due) out.push('<span class="badge">' + icon('cal', 'sm') + ' ' + fmtShort(t.due) + '</span>');
+  if ((t.subs || []).some(s => s.waiting)) out.push('<span class="badge wait">ожидание</span>');
+  if (showPlace) {
+    const c = cardById(t.cardId);
+    const p = c ? projectById(c.projectId) : null;
+    if (c) out.push('<span class="badge" data-goto="' + c.id + '" style="cursor:pointer" title="Открыть карточку">' + esc(p ? p.name : '') + ' · ' + esc(c.name) + '</span>');
+  }
+  (t.tags || []).forEach(tag => out.push('<span class="badge" data-tag="' + esc(tag) + '">' + esc(tag) + '</span>'));
+  return out.join('');
+}
+
+function renderTask(t, idx, showPlace) {
+  const subs = Array.isArray(t.subs) ? t.subs : [];
+  const sd = subs.filter(s => s.done).length, st = subs.length, done = taskDone(t), collapsed = !!state.collapsed[t.id];
+  const di = dueInfo(t.due);
+  const over = !done && di && di.cls === 'over';
+  const shown = collapsed ? [] : subs;
+
+  const subsHtml = shown.map(s => {
+    const extra = (s.links || []).map(linkChip).concat((s.paths || []).map(pathChip));
+    return '<li class="' + (s.done ? 'done' : '') + '">' +
+      '<button class="check sm ' + (s.done ? 'on' : '') + '" data-sub="' + t.id + ':' + s.id + '" aria-label="Отметить пункт">' + icon('check', 'sm') + '</button>' +
+      '<div class="body"><span class="stxt">' + linkify(s.text) + '</span>' + (extra.length ? '<div style="margin-top:3px">' + extra.join(' ') + '</div>' : '') + '</div></li>';
+  }).join('');
+
+  const hiddenCount = subs.length - shown.length;
+  const moreBtn = hiddenCount > 0 ? '<button class="more" data-more="' + t.id + '">показать ещё ' + hiddenCount + '</button>' : '';
+
+  return '<article class="task ' + (done ? 'done' : '') + ' ' + (over ? 'over' : '') + '" data-task-id="' + t.id + '">' +
+    '<div class="thead">' +
+      '<button class="check ' + (done ? 'on' : '') + '" data-task="' + t.id + '" aria-label="Готово">' + icon('check', 'sm') + '</button>' +
+      '<div class="body">' +
+        '<div class="ttl">' + linkify(t.title) + '</div>' +
+        (taskMeta(t, showPlace) ? '<div class="meta">' + taskMeta(t, showPlace) + '</div>' : '') +
+        (t.note ? '<div class="note">' + linkify(t.note) + '</div>' : '') +
+        (((t.links && t.links.length) || (t.paths && t.paths.length))
+          ? '<div class="linkrow">' + (t.links || []).map(linkChip).join(' ') + ' ' + (t.paths || []).map(pathChip).join(' ') + '</div>'
+          : '') +
+        (st ? '<ul class="subs">' + subsHtml + '</ul>' + moreBtn : '') +
+        (collapsed ? '' : '<div class="subadd">' + icon('plus', 'sm') + '<input class="subnew" data-for="' + t.id + '" placeholder="подпункт…" autocomplete="off"></div>') +
+      '</div>' +
+      '<div class="tacts">' +
+        '<button class="icon-btn" data-action="editTask" data-id="' + t.id + '" title="Изменить">' + icon('pencil', 'sm') + '</button>' +
+        '<button class="icon-btn" data-action="delTask" data-id="' + t.id + '" title="Удалить">' + icon('trash', 'sm') + '</button>' +
+      '</div>' +
+    '</div>' +
+  '</article>';
+}
+
+function render() {
+  parseHash();
+  const key = state.route.view + '/' + (state.route.projectId || '') + '/' + (state.route.cardId || '');
+  if (key !== lastKey) { lastKey = key; state.query = ''; state.tag = null; state.quick = null; }
+  clearStats();
+  renderSidebar();
+  renderTopbar();
+  renderView();
+  renderTheme();
+  renderSyncUI();
+  scheduleSave();
+}
+
+function renderTheme() {
+  document.documentElement.dataset.theme = state.settings.theme;
+}
+
+/* точечное обновление одной задачи (без перерисовки списка) */
+function patchTask(id) {
+  const t = taskById(id);
+  const node = document.querySelector('[data-task-id="' + id + '"]');
+  if (!t || !node) { renderTaskList(); return; }
+  if (state.filter !== 'all' || state.quick || state.query || state.tag) { renderTaskList(); return; }
+  const tmp = document.createElement('div');
+  tmp.innerHTML = renderTask(t, -1, false);
+  const fresh = tmp.firstElementChild;
+  node.replaceWith(fresh);
+  const inp = fresh.querySelector('.subnew');
+  if (inp) inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && inp.value.trim()) { e.preventDefault(); addSubFromInput(inp.dataset.for, inp.value); }
+  });
+}
+
+/* ============================================================================
+   8. МОДАЛКИ
+   ========================================================================== */
+let lastFocus = null;
+function openModal(html) {
+  lastFocus = document.activeElement;
+  document.getElementById('modalRoot').innerHTML =
+    '<div class="overlay" data-overlay="1"><div class="modal" role="dialog" aria-modal="true">' + html + '</div></div>';
+  const first = document.querySelector('#modalRoot input, #modalRoot textarea, #modalRoot select, #modalRoot button');
+  if (first) first.focus();
+}
+function closeModal() {
+  document.getElementById('modalRoot').innerHTML = '';
+  if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} }
+}
+const modalHtml = () => document.getElementById('modalRoot').innerHTML;
+
+function openProjectModal(id) {
+  const p = id ? projectById(id) : null;
+  openModal('<h2>' + (p ? 'Проект' : 'Новый проект') + '</h2>' +
+    '<div class="field"><label>Название</label><input type="text" id="p-name" value="' + esc(p ? p.name : '') + '" placeholder="Например: Работа"></div>' +
+    '<div class="field"><label>Описание</label><input type="text" id="p-note" value="' + esc(p ? p.note : '') + '" placeholder="О чём проект"></div>' +
+    '<div class="modal-foot"><div>' + (p ? '<button class="btn dan sm" data-action="delProject" data-id="' + p.id + '">' + icon('trash', 'sm') + ' Удалить</button>' : '') + '</div>' +
+    '<div class="right"><button class="btn" data-action="closeModal">Отмена</button>' +
+    '<button class="btn pri" data-action="saveProject" data-id="' + (p ? p.id : '') + '">Сохранить</button></div></div>');
+}
+
+function openCardModal(id) {
+  const c = id ? cardById(id) : null;
+  const pid = c ? c.projectId : state.route.projectId;
+  openModal('<h2>' + (c ? 'Карточка' : 'Новая карточка') + '</h2>' +
+    '<div class="field"><label>Название</label><input type="text" id="c-name" value="' + esc(c ? c.name : '') + '" placeholder="Список от 02.11.2026"></div>' +
+    '<div class="field"><label>Дата / пометка</label><input type="text" id="c-date" value="' + esc(c ? c.date : '') + '" placeholder="02.11.2026"></div>' +
+    '<div class="modal-foot"><div>' + (c ? '<button class="btn dan sm" data-action="delCard" data-id="' + c.id + '">' + icon('trash', 'sm') + ' Удалить</button>' : '') + '</div>' +
+    '<div class="right"><button class="btn" data-action="closeModal">Отмена</button>' +
+    '<button class="btn pri" data-action="saveCard" data-id="' + (c ? c.id : '') + '" data-pid="' + pid + '">Сохранить</button></div></div>');
+}
+
+function openTaskModal(id) {
+  const t = id ? taskById(id) : null;
+  const cardId = t ? t.cardId : state.route.cardId;
+  if (!cardId) { toast('Сначала открой карточку'); return; }
+  const subs = t ? t.subs.slice() : [];
+  const cardOptions = state.projects.map(p => {
+    const cs = cardsOf(p.id);
+    if (!cs.length) return '';
+    return '<optgroup label="' + esc(p.name) + '">' +
+      cs.map(c => '<option value="' + c.id + '"' + (c.id === cardId ? ' selected' : '') + '>' + esc(c.name) + '</option>').join('') +
+      '</optgroup>';
+  }).join('');
+
+  openModal('<h2>' + (t ? 'Задача' : 'Новая задача') + '</h2>' +
+    '<div class="field"><label>Название</label><input type="text" id="edTitle" value="' + esc(t ? t.title : '') + '"></div>' +
+    '<div class="row2">' +
+      '<div class="field"><label>Карточка</label><select id="edCard">' + cardOptions + '</select></div>' +
+      '<div class="field"><label>Срок</label><input type="date" id="edDue" value="' + esc(t && t.due ? t.due : '') + '"></div>' +
+      '<div class="field"><label>Приоритет</label><select id="edPrio">' +
+        '<option value="high"' + (t && t.priority === 'high' ? ' selected' : '') + '>Срочно</option>' +
+        '<option value="normal"' + (!t || t.priority === 'normal' ? ' selected' : '') + '>Обычный</option>' +
+        '<option value="low"' + (t && t.priority === 'low' ? ' selected' : '') + '>Низкий</option>' +
+      '</select></div>' +
+      '<div class="field"><label>Заметка</label><input type="text" id="edNote" value="' + esc(t ? (t.note || '') : '') + '"></div>' +
+    '</div>' +
+    '<div class="field"><label>Подпункты</label><div id="edSubs">' + subs.map(s =>
+      '<div class="sub-editor"><input type="text" class="sub-input" value="' + esc(s.text) + '" data-sid="' + s.id + '">' +
+      '<button class="btn sm" data-action="removeSubField">' + icon('x', 'sm') + '</button></div>').join('') + '</div>' +
+    '<button class="btn sm" data-action="addSubField" style="margin-top:6px">' + icon('plus', 'sm') + ' Подпункт</button></div>' +
+    '<div class="modal-foot"><div>' + (t ? '<button class="btn dan sm" data-action="delTask" data-id="' + t.id + '">' + icon('trash', 'sm') + ' Удалить</button>' : '') + '</div>' +
+    '<div class="right"><button class="btn" data-action="closeModal">Отмена</button>' +
+    '<button class="btn pri" data-action="saveTask" data-id="' + (t ? t.id : '') + '">Сохранить</button></div></div>');
+}
+
+function openImportModal() {
+  const cardId = state.route.cardId;
+  if (!cardId) { toast('Импорт доступен внутри карточки'); return; }
+  openModal('<h2>Импорт текста</h2>' +
+    '<div class="field"><label>Файл (.txt, .md)</label><input type="file" id="impFile" accept=".txt,.md,text/plain"></div>' +
+    '<div class="field"><label>…или вставь текст</label><textarea id="impText" placeholder="1. Первая задача&#10;- подпункт&#10;2. Вторая задача"></textarea></div>' +
+    '<div class="preview" id="impPreview">Нажми «Разобрать», чтобы увидеть результат.</div>' +
+    '<div class="modal-foot"><div></div><div class="right">' +
+      '<button class="btn" data-action="closeModal">Отмена</button>' +
+      '<button class="btn" data-action="parsePreview">Разобрать</button>' +
+      '<button class="btn pri" data-action="doImport" data-card="' + cardId + '">Импортировать</button>' +
+    '</div></div>');
+}
+
+function openSearchModal() {
+  openModal('<h2>Поиск по всем задачам</h2>' +
+    '<div class="searchbox">' + icon('search', 'sm') +
+      '<input id="gsInput" type="search" placeholder="Название, подпункт, заметка…" autocomplete="off">' +
+      '<kbd>Esc</kbd></div>' +
+    '<div class="results" id="gsResults"><div class="hint" style="padding:10px">Введи хотя бы 2 символа.</div></div>');
+  const inp = document.getElementById('gsInput');
+  let timer = null;
+  inp.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const list = globalSearch(inp.value);
+      const box = document.getElementById('gsResults');
+      if (!list.length) { box.innerHTML = '<div class="hint" style="padding:10px">Ничего не найдено.</div>'; return; }
+      box.innerHTML = list.map(t => {
+        const c = cardById(t.cardId), p = c ? projectById(c.projectId) : null;
+        return '<div class="result" data-goto="' + t.cardId + '">' +
+          '<div class="ri">' + (taskDone(t) ? '✓' : '○') + '</div>' +
+          '<div style="min-width:0"><div class="rt">' + esc(t.title) + '</div>' +
+          '<div class="rp">' + esc(p ? p.name : '') + ' · ' + esc(c ? c.name : '') + '</div></div></div>';
+      }).join('');
+    }, 140);
+  });
+  inp.focus();
+}
+
+function openHelp() {
+  openModal('<h2>Горячие клавиши</h2>' +
+    '<div class="field" style="gap:10px">' +
+      '<div><kbd>n</kbd> — новая задача / карточка / проект (по контексту)</div>' +
+      '<div><kbd>/</kbd> — поиск по карточке</div>' +
+      '<div><kbd>Ctrl</kbd>+<kbd>K</kbd> — поиск по всем задачам</div>' +
+      '<div><kbd>Esc</kbd> — закрыть окно</div>' +
+      '<div><kbd>Enter</kbd> — сохранить в окне (в тексте — <kbd>Ctrl</kbd>+<kbd>Enter</kbd>)</div>' +
+      '<div><kbd>?</kbd> — эта справка</div>' +
+    '</div>' +
+    '<div class="modal-foot"><div></div><div class="right"><button class="btn pri" data-action="closeModal">Понятно</button></div></div>');
+}
+
+function openConfirm(text, action, id, label) {
+  openModal('<h2>Подтверди</h2><p style="margin-bottom:16px;color:var(--mut)">' + esc(text) + '</p>' +
+    '<div class="modal-foot"><div></div><div class="right">' +
+      '<button class="btn" data-action="closeModal">Отмена</button>' +
+      '<button class="btn dan" data-action="' + action + '" data-id="' + (id || '') + '">' + esc(label) + '</button>' +
+    '</div></div>');
+}
+
+/* ============================================================================
+   9. ДЕЙСТВИЯ
+   ========================================================================== */
+function toast(msg, opts) {
+  const box = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = 'toast ' + (opts && opts.warn ? 'warn' : '');
+  el.innerHTML = '<span>' + esc(msg) + '</span>';
+  if (opts && opts.action) {
+    const b = document.createElement('button');
+    b.textContent = opts.action;
+    b.onclick = () => { opts.onAction && opts.onAction(); el.remove(); };
+    el.appendChild(b);
+  }
+  box.appendChild(el);
+  setTimeout(() => el.remove(), opts && opts.action ? 6000 : 2600);
+}
+
+let undoFn = null;
+function undoToast(msg, fn) {
+  undoFn = fn;
+  toast(msg, { action: 'Отменить', onAction: () => { if (undoFn) { undoFn(); undoFn = null; } } });
+}
+
+function bump() { state.seeded = false; clearStats(); scheduleSave(); scheduleSync(); }
+
+function toggleTask(id) {
+  const t = taskById(id); if (!t) return;
+  const now = !taskDone(t);
+  t.done = now; t.doneAt = now ? Date.now() : null;
+  t.subs.forEach(s => s.done = now);
+  bump();
+  if (state.route.view === 'today') renderView(); else patchTask(id);
+  renderSidebar();
+  toast(now ? 'Готово' : 'Открыто снова');
+}
+function toggleSub(key) {
+  const [tid, sid] = key.split(':');
+  const t = taskById(tid); if (!t) return;
+  const s = t.subs.find(x => x.id === sid); if (!s) return;
+  s.done = !s.done;
+  const subs = t.subs || [];
+  t.done = subs.length > 0 && subs.every(x => x.done);
+  bump();
+  if (state.route.view === 'today') renderView(); else patchTask(tid);
+}
+
+function addSubFromInput(taskId, text) {
+  const t = taskById(taskId); if (!t || !text.trim()) return;
+  const n = normalizeText(text.trim());
+  t.subs.push({ id: uid('s'), text: n.text || text.trim(), links: n.links, paths: n.paths, waiting: n.waiting, done: false });
+  bump();
+  if (state.route.view === 'today') renderView(); else renderTaskList();
+}
+function quickAddFromInput() {
+  const inp = document.getElementById('quickAdd');
+  if (!inp || !inp.value.trim()) return;
+  const cid = state.route.cardId;
+  const lines = inp.value.split('\n').map(s => s.trim()).filter(Boolean);
+  const created = lines.map(line => {
+    // снимаем маркер списка и нумерацию: «- задача», «1. задача», «2) задача»
+    const clean = line.replace(/^\s*[-–—•*]\s*/, '').replace(/^\s*\d{1,3}[.)]\s*/, '').trim();
+    if (!clean) return null;
+    const t = makeTask(cid, clean);
+    state.tasks.push(t);
+    return t;
+  }).filter(Boolean);
+  if (!created.length) return;
+  inp.value = '';
+  bump(); renderTaskList(); renderSidebar(); renderTopbar();
+  toast(created.length === 1 ? 'Задача добавлена' : 'Добавлено задач: ' + created.length);
+}
+
+function saveProjectForm(id) {
+  const name = document.getElementById('p-name').value.trim();
+  if (!name) { toast('Название не может быть пустым', { warn: true }); return; }
+  const note = document.getElementById('p-note').value.trim();
+  if (id) { const p = projectById(id); p.name = name; p.note = note; }
+  else { const p = makeProject(name, note); state.projects.push(p); }
+  closeModal(); bump(); render(); toast('Сохранено');
+}
+function saveCardForm(id, pid) {
+  const name = document.getElementById('c-name').value.trim();
+  if (!name) { toast('Название не может быть пустым', { warn: true }); return; }
+  const date = document.getElementById('c-date').value.trim();
+  if (id) { const c = cardById(id); c.name = name; c.date = date; closeModal(); bump(); render(); toast('Сохранено'); return; }
+  const c = makeCard(pid || state.route.projectId, name, date);
+  state.cards.push(c);
+  closeModal(); bump(); go('#/p/' + c.projectId + '/c/' + c.id); toast('Карточка создана');
+}
+function collectSubs(id) {
+  const t = id ? taskById(id) : null;
+  const rows = Array.from(document.querySelectorAll('#edSubs .sub-input'));
+  return rows.map(inp => {
+    const sid = inp.dataset.sid;
+    const old = t && t.subs.find(s => s.id === sid);
+    const n = normalizeText(inp.value.trim());
+    const text = n.text || inp.value.trim();
+    const links = n.links.length ? n.links : (old ? old.links || [] : []);
+    const paths = n.paths.length ? n.paths : (old ? old.paths || [] : []);
+    const waiting = n.waiting || (old ? old.waiting : false);
+    return old ? Object.assign({}, old, { text, links, paths, waiting })
+               : { id: uid('s'), text, links, paths, waiting, done: false };
+  }).filter(s => s.text);
+}
+function saveTaskForm(id) {
+  const title = document.getElementById('edTitle').value.trim();
+  if (!title) { toast('Название не может быть пустым', { warn: true }); return; }
+  const subs = collectSubs(id);
+  const prio = document.getElementById('edPrio').value;
+  const note = document.getElementById('edNote').value.trim();
+  const due = document.getElementById('edDue') ? document.getElementById('edDue').value : '';
+  const cardSel = document.getElementById('edCard');
+  const cardId = cardSel ? cardSel.value : state.route.cardId;
+
+  if (id) {
+    const t = taskById(id);
+    const nx = normalizeText(title);
+    t.title = nx.text || title;
+    if (nx.links.length) t.links = nx.links;
+    if (nx.paths.length) t.paths = nx.paths;
+    t.note = note; t.priority = prio; t.due = due; t.subs = subs; t.cardId = cardId;
+    t.tags = detectTags(t.title + ' ' + subs.map(s => s.text).join(' '));
+  } else {
+    const t = makeTask(cardId, title);
+    t.note = note; t.priority = prio; t.due = due; t.subs = subs;
+    state.tasks.push(t);
+  }
+  closeModal(); bump();
+  if (state.route.cardId && state.route.cardId !== cardId) {
+    const target = cardById(cardId);
+    go('#/p/' + (target ? target.projectId : state.route.projectId) + '/c/' + cardId);
+  } else { render(); }
+  toast('Сохранено');
+}
+
+function deleteProject(id) {
+  const p = projectById(id);
+  if (!p) return;
+  const now = Date.now();
+  p.deletedAt = now; p.updatedAt = now;
+  const cards = cardsOf(id);
+  const cids = cards.map(c => c.id);
+  cards.forEach(c => { c.deletedAt = now; c.updatedAt = now; });
+  const removedTasks = state.tasks.filter(t => cids.includes(t.cardId) && !t.deletedAt);
+  removedTasks.forEach(t => { t.deletedAt = now; t.updatedAt = now; });
+  closeModal(); bump();
+  if (state.route.projectId === id) go('#/projects'); else render();
+  undoToast('Проект «' + p.name + '» удалён', () => {
+    p.deletedAt = null; p.updatedAt = Date.now();
+    cards.forEach(c => { c.deletedAt = null; c.updatedAt = Date.now(); });
+    removedTasks.forEach(t => { t.deletedAt = null; t.updatedAt = Date.now(); });
+    bump(); render(); toast('Восстановлено');
+  });
+}
+function deleteCard(id) {
+  const c = cardById(id);
+  if (!c) return;
+  const now = Date.now();
+  c.deletedAt = now; c.updatedAt = now;
+  const removed = state.tasks.filter(t => t.cardId === id && !t.deletedAt);
+  removed.forEach(t => { t.deletedAt = now; t.updatedAt = now; });
+  closeModal(); bump();
+  if (state.route.cardId === id) go('#/p/' + c.projectId); else render();
+  undoToast('Карточка «' + c.name + '» удалена', () => {
+    c.deletedAt = null; c.updatedAt = Date.now();
+    removed.forEach(t => { t.deletedAt = null; t.updatedAt = Date.now(); });
+    bump(); render(); toast('Восстановлено');
+  });
+}
+function deleteTask(id) {
+  const t = taskById(id);
+  if (!t) return;
+  t.deletedAt = Date.now();
+  t.updatedAt = Date.now();
+  closeModal(); bump();
+  if (state.route.view === 'today') renderView(); else renderTaskList();
+  undoToast('Задача удалена', () => {
+    t.deletedAt = null; t.updatedAt = Date.now();
+    bump(); render(); toast('Восстановлено');
+  });
+}
+
+function duplicateCard(id) {
+  const src = cardById(id);
+  if (!src) return;
+  const copy = makeCard(src.projectId, src.name + ' (копия)', src.date);
+  state.cards.push(copy);
+  tasksOf(id).forEach(t => {
+    const nt = Object.assign({}, t, {
+      id: uid('t'), cardId: copy.id, done: false, doneAt: null,
+      createdAt: Date.now() + Math.random(),
+      subs: t.subs.map(s => Object.assign({}, s, { id: uid('s'), done: false }))
+    });
+    state.tasks.push(nt);
+  });
+  bump(); render();
+  toast('Карточка скопирована — галочки сняты', {});
+}
+
+function exportJson() {
+  flushSave();
+  const payload = { version: 3, exportedAt: new Date().toISOString(),
+    projects: state.projects.filter(x => !x.deletedAt),
+    cards: state.cards.filter(x => !x.deletedAt),
+    tasks: state.tasks.filter(x => !x.deletedAt) };
+  const text = JSON.stringify(payload, null, 2);
+  const name = 'tasks-' + new Date().toISOString().slice(0, 10) + '.json';
+  const blob = new Blob([text], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast('Файл выгружен: ' + name);
+}
+function importJsonFile(file) {
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const data = JSON.parse(String(r.result));
+      if (!data || !Array.isArray(data.projects)) throw new Error('нет массива projects');
+      state.projects = data.projects.map(normalizeProject);
+      state.cards = (Array.isArray(data.cards) ? data.cards : []).map(normalizeCard);
+      state.tasks = (Array.isArray(data.tasks) ? data.tasks : []).map(t => normalizeTask(t));
+      bump(); go('#/'); toast('Загружено: ' + state.projects.length + ' проектов, ' + state.tasks.length + ' задач');
+    } catch (e) { toast('Не удалось прочитать JSON: ' + e.message, { warn: true }); }
+  };
+  r.readAsText(file, 'utf-8');
+}
+function toggleTheme() {
+  state.settings.theme = state.settings.theme === 'dark' ? 'light' : 'dark';
+  renderTheme(); renderSidebar(); scheduleSave();
+}
+
+/* ============================================================================
+   10. СОБЫТИЯ
+   ========================================================================== */
+function closeDrawer() { document.getElementById('app').classList.remove('drawer'); document.getElementById('sidebar').classList.remove('open'); }
+
+function onDocumentClick(e) {
+  const el = e.target.closest('[data-action],[data-nav],[data-task],[data-sub],[data-filter],[data-quick],[data-tag],[data-copy],[data-goto],[data-overlay]');
+  if (!el) return;
+
+  if (el.dataset.copy) { e.preventDefault(); copyText(el.dataset.copy); return; }
+  if (el.dataset.overlay) { if (e.target === el) closeModal(); return; }
+  if (el.dataset.nav) { closeDrawer(); go(el.dataset.nav); return; }
+  if (el.dataset.task) { toggleTask(el.dataset.task); return; }
+  if (el.dataset.sub) { toggleSub(el.dataset.sub); return; }
+  if (el.dataset.filter) { state.filter = el.dataset.filter; renderCard(); scheduleSave(); return; }
+  if (el.dataset.quick !== undefined) { state.quick = el.dataset.quick || null; renderCard(); scheduleSave(); return; }
+  if (el.dataset.tag !== undefined) { state.tag = el.dataset.tag || null; renderCard(); scheduleSave(); return; }
+  if (el.dataset.goto) {
+    const c = cardById(el.dataset.goto);
+    if (c) { closeModal(); go('#/p/' + c.projectId + '/c/' + c.id); }
+    return;
+  }
+
+  const a = el.dataset.action;
+  if (a === 'menu') { document.getElementById('app').classList.add('drawer'); document.getElementById('sidebar').classList.add('open'); return; }
+  if (a === 'closeDrawer') { closeDrawer(); return; }
+  if (a === 'openSearch') { openSearchModal(); return; }
+  if (a === 'openSync') { openSyncModal(); return; }
+  if (a === 'syncNow') { syncNow(); return; }
+  if (a === 'signOut') { signOut(); return; }
+  if (a === 'authSignIn') { doSignIn(); return; }
+  if (a === 'authSignUp') { doSignUp(); return; }
+  if (a === 'help') { openHelp(); return; }
+  if (a === 'toggleTheme') { toggleTheme(); return; }
+  if (a === 'newProject') { closeDrawer(); openProjectModal(null); return; }
+  if (a === 'newCard') { openCardModal(null); return; }
+  if (a === 'newTask') { openTaskModal(null); return; }
+  if (a === 'editProject') { openProjectModal(el.dataset.id); return; }
+  if (a === 'editCard') { openCardModal(el.dataset.id); return; }
+  if (a === 'editTask') { openTaskModal(el.dataset.id); return; }
+  if (a === 'saveProject') { saveProjectForm(el.dataset.id || null); return; }
+  if (a === 'saveCard') { saveCardForm(el.dataset.id || null, el.dataset.pid || null); return; }
+  if (a === 'saveTask') { saveTaskForm(el.dataset.id || null); return; }
+  if (a === 'delProject') { openConfirm('Удалить проект и все его карточки с задачами? Можно будет отменить.', 'delProjectOk', el.dataset.id, 'Удалить'); return; }
+  if (a === 'delProjectOk') { deleteProject(el.dataset.id); return; }
+  if (a === 'delCard') { openConfirm('Удалить карточку и все её задачи? Можно будет отменить.', 'delCardOk', el.dataset.id, 'Удалить'); return; }
+  if (a === 'delCardOk') { deleteCard(el.dataset.id); return; }
+  if (a === 'delTask') { openConfirm('Удалить задачу?', 'delTaskOk', el.dataset.id, 'Удалить'); return; }
+  if (a === 'delTaskOk') { deleteTask(el.dataset.id); return; }
+  if (a === 'duplicateCard') { duplicateCard(el.dataset.id); return; }
+  if (a === 'importText') { openImportModal(); return; }
+  if (a === 'parsePreview') {
+    const tasks = parseImport(document.getElementById('impText').value, state.route.cardId);
+    const subs = tasks.reduce((s, t) => s + t.subs.length, 0);
+    document.getElementById('impPreview').textContent = tasks.length
+      ? 'Задач: ' + tasks.length + ', подпунктов: ' + subs + '\n\n' +
+        tasks.slice(0, 8).map((t, i) => (i + 1) + '. ' + t.title + (t.subs.length ? '\n' + t.subs.map(s => '   – ' + s.text).join('\n') : '')).join('\n')
+      : 'Задач не найдено. Задача — строка с номером, подпункт — строка с «-».';
+    return;
+  }
+  if (a === 'doImport') {
+    const tasks = parseImport(document.getElementById('impText').value, el.dataset.card);
+    if (!tasks.length) { toast('Пустой текст', { warn: true }); return; }
+    state.tasks = state.tasks.concat(tasks);
+    state.filter = 'active'; state.query = ''; state.tag = null; state.quick = null;
+    closeModal(); bump(); render();
+    toast('Добавлено задач: ' + tasks.length);
+    return;
+  }
+  if (a === 'quickAdd') { quickAddFromInput(); return; }
+  if (a === 'resetFilters') { state.query = ''; state.tag = null; state.quick = null; state.filter = 'active'; renderCard(); return; }
+  if (a === 'exportJson') { exportJson(); return; }
+  if (a === 'importJsonClick') { document.getElementById('jsonFile').click(); return; }
+  if (a === 'closeModal') { closeModal(); return; }
+  if (a === 'addSubField') {
+    const box = document.getElementById('edSubs');
+    const div = document.createElement('div');
+    div.className = 'sub-editor';
+    div.innerHTML = '<input type="text" class="sub-input" placeholder="что сделать">' +
+      '<button class="btn sm" data-action="removeSubField">✕</button>';
+    box.appendChild(div);
+    div.querySelector('input').focus();
+    return;
+  }
+  if (a === 'removeSubField') { el.closest('.sub-editor').remove(); return; }
+}
+document.addEventListener('click', onDocumentClick);
+
+document.addEventListener('change', e => {
+  if (e.target && e.target.id === 'impFile') {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      const ta = document.getElementById('impText');
+      if (ta) ta.value = String(r.result);
+      const p = document.getElementById('impPreview');
+      if (p) p.textContent = 'Файл прочитан: ' + f.name + '. Нажми «Разобрать».';
+    };
+    r.readAsText(f, 'utf-8');
+  }
+  if (e.target && e.target.id === 'jsonFile') {
+    const f = e.target.files[0]; if (f) importJsonFile(f);
+    e.target.value = '';
+  }
+});
+
+document.addEventListener('keydown', e => {
+  const tag = (e.target && e.target.tagName || '').toLowerCase();
+  const typing = tag === 'input' || tag === 'textarea' || tag === 'select';
+
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); openSearchModal(); return; }
+  if (e.key === 'Escape') {
+    if (modalHtml()) { closeModal(); return; }
+    closeDrawer();
+    return;
+  }
+  if (typing) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && modalHtml()) {
+      const btn = document.querySelector('#modalRoot [data-action="saveTask"], #modalRoot [data-action="saveProject"], #modalRoot [data-action="saveCard"]');
+      if (btn) { e.preventDefault(); btn.click(); }
+    }
+    return;
+  }
+  if (e.key === '?') { openHelp(); return; }
+  if (e.key === '/' ) {
+    e.preventDefault();
+    if (state.route.view === 'card') { const q = document.getElementById('cardSearch'); if (q) q.focus(); }
+    else openSearchModal();
+    return;
+  }
+  if (e.key === 'n' || e.key === 'N' || e.key === 'т' || e.key === 'Т') {
+    e.preventDefault();
+    if (state.route.view === 'card') openTaskModal(null);
+    else if (state.route.view === 'project') openCardModal(null);
+    else openProjectModal(null);
+    return;
+  }
+  if (modalHtml() && e.key === 'Tab') {
+    const f = Array.from(document.querySelectorAll('#modalRoot input,#modalRoot textarea,#modalRoot select,#modalRoot button')).filter(x => !x.disabled);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+});
+
+window.addEventListener('hashchange', () => render());
+window.addEventListener('beforeunload', flushSave);
+
+function copyText(text) {
+  const done = () => toast('Скопировано');
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(done).catch(done);
+  else {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    ta.remove(); done();
+  }
+}
+
+/* ============================================================================
+   10. ОБЛАКО: Supabase — вход, синхронизация, слияние и конфликты
+   ========================================================================== */
+const SB_URL = 'https://ojxvxvqdesgjrdunhbkq.supabase.co';
+const SB_KEY = 'sb_publishable_1SsaZNX9YkaiMMgKMFnw3Q_JaUROD3e';
+const LS_SESSION = 'todoSessionV1';
+const LS_SYNCED = 'todoSyncedV1';
+const TABLES = ['projects', 'cards', 'tasks'];
+
+let syncTimer = null;
+let pulledChanges = 0;
+
+state.sync = {
+  session: null,
+  synced: { projects: {}, cards: {}, tasks: {} },
+  status: 'idle',   // idle | syncing | ok | error | auth | offline
+  error: '',
+  lastSync: 0,
+  busy: false
+};
+
+/* ---------- сессия ---------- */
+function loadSession() {
+  try {
+    const s = JSON.parse(localStorage.getItem(LS_SESSION) || 'null');
+    return (s && s.access_token) ? s : null;
+  } catch (e) { return null; }
+}
+function saveSession(s) {
+  try {
+    if (s) localStorage.setItem(LS_SESSION, JSON.stringify(s));
+    else localStorage.removeItem(LS_SESSION);
+  } catch (e) {}
+}
+function loadSynced() {
+  try {
+    const s = JSON.parse(localStorage.getItem(LS_SYNCED) || 'null');
+    if (s && typeof s === 'object') state.sync.synced = { projects: s.projects || {}, cards: s.cards || {}, tasks: s.tasks || {} };
+  } catch (e) {}
+}
+function saveSynced() {
+  try { localStorage.setItem(LS_SYNCED, JSON.stringify(state.sync.synced)); } catch (e) {}
+}
+
+/* ---------- HTTP ---------- */
+async function request(path, opts, canRetry) {
+  const o = opts || {};
+  const headers = Object.assign({ apikey: SB_KEY, 'Content-Type': 'application/json' }, o.headers || {});
+  const sess = state.sync.session;
+  if (sess && sess.access_token) headers.Authorization = 'Bearer ' + sess.access_token;
+
+  const res = await fetch(SB_URL + path, { method: o.method || 'GET', headers: headers, body: o.body });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+
+  if (res.status === 401 && canRetry && sess && sess.refresh_token) {
+    if (await sbRefresh()) return request(path, opts, false);
+  }
+  if (!res.ok) {
+    const msg = (data && (data.message || data.error_description || data.msg || data.error)) || ('HTTP ' + res.status);
+    const err = new Error(msg);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+const sbFetch = (path, opts) => request(path, opts, true);
+
+/* ---------- авторизация ---------- */
+function setSessionFromAuth(d) {
+  const prev = state.sync.session;
+  const s = {
+    access_token: d.access_token,
+    refresh_token: d.refresh_token,
+    expires_at: Date.now() + ((d.expires_in || 3600) * 1000) - 60000,
+    user: d.user ? { id: d.user.id, email: d.user.email } : (prev && prev.user) || null
+  };
+  state.sync.session = s;
+  saveSession(s);
+}
+async function sbSignIn(email, password) {
+  const d = await sbFetch('/auth/v1/token?grant_type=password', {
+    method: 'POST', body: JSON.stringify({ email: email, password: password })
+  });
+  setSessionFromAuth(d);
+  return d;
+}
+async function sbSignUp(email, password) {
+  const d = await sbFetch('/auth/v1/signup', {
+    method: 'POST', body: JSON.stringify({ email: email, password: password })
+  });
+  if (d && d.access_token) setSessionFromAuth(d);
+  return d;
+}
+async function sbRefresh() {
+  const s = state.sync.session;
+  if (!s || !s.refresh_token) return false;
+  try {
+    const d = await sbFetch('/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST', body: JSON.stringify({ refresh_token: s.refresh_token })
+    });
+    setSessionFromAuth(d);
+    return true;
+  } catch (e) { return false; }
+}
+async function ensureFresh() {
+  const s = state.sync.session;
+  if (!s) return false;
+  if (!s.expires_at || Date.now() < s.expires_at) return true;
+  return await sbRefresh();
+}
+async function signOut() {
+  try { await sbFetch('/auth/v1/logout', { method: 'POST' }); } catch (e) {}
+  state.sync.session = null;
+  saveSession(null);
+  state.sync.synced = { projects: {}, cards: {}, tasks: {} };
+  saveSynced();
+  closeModal(); renderSyncUI();
+  toast('Вы вышли из облака — данные остались на устройстве');
+}
+
+/* ---------- маппинг локальные ↔ серверные поля ---------- */
+const toIso = ms => (ms ? new Date(ms).toISOString() : null);
+const fromIso = s => (s ? new Date(s).getTime() : 0);
+
+function rowFor(table, x, userId) {
+  if (table === 'projects') {
+    return { id: x.id, owner_id: userId, name: x.name || '', note: x.note || '',
+      created_at: toIso(x.createdAt), updated_at: toIso(x.updatedAt), deleted_at: toIso(x.deletedAt) };
+  }
+  if (table === 'cards') {
+    return { id: x.id, owner_id: userId, project_id: x.projectId, name: x.name || '',
+      date_label: x.date || '', created_at: toIso(x.createdAt), updated_at: toIso(x.updatedAt),
+      deleted_at: toIso(x.deletedAt) };
+  }
+  return { id: x.id, owner_id: userId, card_id: x.cardId, title: x.title || '', note: x.note || '',
+    priority: x.priority || 'normal', due: x.due || null, done: !!x.done, done_at: toIso(x.doneAt),
+    subs: x.subs || [], tags: x.tags || [], links: x.links || [], paths: x.paths || [],
+    created_at: toIso(x.createdAt), updated_at: toIso(x.updatedAt), deleted_at: toIso(x.deletedAt) };
+}
+function fromRowFor(table, r) {
+  if (table === 'projects') {
+    return { id: r.id, name: r.name || '', note: r.note || '',
+      createdAt: fromIso(r.created_at) || Date.now(), updatedAt: fromIso(r.updated_at) || 0,
+      deletedAt: fromIso(r.deleted_at) || null };
+  }
+  if (table === 'cards') {
+    return { id: r.id, projectId: r.project_id, name: r.name || '', date: r.date_label || '',
+      createdAt: fromIso(r.created_at) || Date.now(), updatedAt: fromIso(r.updated_at) || 0,
+      deletedAt: fromIso(r.deleted_at) || null };
+  }
+  const t = normalizeTask(Object.assign({}, r, {
+    cardId: r.card_id, doneAt: fromIso(r.done_at) || null, createdAt: fromIso(r.created_at) || Date.now()
+  }));
+  t.updatedAt = fromIso(r.updated_at) || 0;
+  t.deletedAt = fromIso(r.deleted_at) || null;
+  return t;
+}
+function sig(x) {
+  const c = Object.assign({}, x);
+  delete c.updatedAt; delete c.deletedAt;
+  return JSON.stringify(c);
+}
+
+/* ---------- отправка изменений ---------- */
+async function upsertRows(table, rows) {
+  if (!rows.length) return;
+  await sbFetch('/rest/v1/' + table + '?on_conflict=id', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(rows)
+  });
+}
+async function deleteRow(table, id) {
+  await sbFetch('/rest/v1/' + table + '?id=eq.' + encodeURIComponent(id), {
+    method: 'DELETE', headers: { Prefer: 'return=minimal' }
+  });
+}
+
+async function pushChanges() {
+  const userId = state.sync.session.user.id;
+  let sent = 0;
+
+  // удаления — сначала дети, потом родители
+  for (const table of TABLES.slice().reverse()) {
+    const rows = state[table] || [];
+    const prev = state.sync.synced[table] || {};
+    const present = {};
+    rows.forEach(x => { present[x.id] = true; });
+    const gone = [];
+    Object.keys(prev).forEach(id => { if (!present[id]) gone.push(id); });
+    rows.forEach(x => { if (x.deletedAt) gone.push(x.id); });
+
+    for (const id of gone) {
+      await deleteRow(table, id);
+      delete state.sync.synced[table][id];
+      state[table] = state[table].filter(x => x.id !== id);
+      sent++;
+    }
+  }
+
+  // вставки и правки — сначала родители, потом дети
+  for (const table of TABLES) {
+    const batch = [];
+    (state[table] || []).forEach(x => {
+      if (x.deletedAt) return;
+      const s = sig(x);
+      if (state.sync.synced[table][x.id] === s) return;
+      if (!x.updatedAt) x.updatedAt = Date.now();
+      batch.push({ x: x, s: s });
+    });
+    if (!batch.length) continue;
+
+    await upsertRows(table, batch.map(b => rowFor(table, b.x, userId)));
+    batch.forEach(b => { state.sync.synced[table][b.x.id] = b.s; });
+    sent += batch.length;
+  }
+
+  saveSynced();
+  return sent;
+}
+
+/* ---------- приём изменений ---------- */
+function mergeRows(table, rows) {
+  const local = {};
+  (state[table] || []).forEach(x => { local[x.id] = x; });
+
+  rows.forEach(r => {
+    const remote = fromRowFor(table, r);
+    const cur = local[r.id];
+
+    if (!cur) {
+      state[table].push(remote);
+      local[r.id] = remote;
+      pulledChanges++;
+      state.sync.synced[table][r.id] = sig(remote);
+      return;
+    }
+
+    const remoteStamp = remote.updatedAt || 0;
+    const localStamp = cur.updatedAt || 0;
+
+    if (remoteStamp >= localStamp) {
+      if (sig(cur) !== sig(remote)) { Object.assign(cur, remote); pulledChanges++; }
+      state.sync.synced[table][r.id] = sig(cur);
+    }
+    // локальная версия новее — не трогаем synced, push отправит её наверх
+  });
+  saveSynced();
+}
+
+async function pullAll() {
+  for (const table of TABLES) {
+    const rows = await sbFetch('/rest/v1/' + table + '?select=*');
+    if (Array.isArray(rows)) mergeRows(table, rows);
+  }
+  clearStats();
+}
+
+/* ---------- главный цикл ---------- */
+function setSyncStatus(status, err) { state.sync.status = status; state.sync.error = err || ''; }
+
+async function syncNow(opts) {
+  const o = opts || {};
+  if (!state.sync.session) { if (!o.silent) openSyncModal(); return; }
+  if (state.sync.busy) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    setSyncStatus('offline'); renderSyncUI(); return;
+  }
+  const user = state.sync.session.user;
+  if (!user || !user.id) { setSyncStatus('auth', 'нужно войти заново'); renderSyncUI(); return; }
+
+  state.sync.busy = true;
+  setSyncStatus('syncing');
+  renderSyncUI();
+
+  try {
+    if (!(await ensureFresh())) throw Object.assign(new Error('сессия истекла, войди заново'), { status: 401 });
+
+    pulledChanges = 0;
+
+    // первая синхронизация на новом устройстве: показывался демо-список, а в облаке уже есть данные —
+    // демо выбрасываем, чтобы оно не смешалось с настоящими задачами
+    const nothingSynced = !Object.keys(state.sync.synced.projects).length
+      && !Object.keys(state.sync.synced.cards).length
+      && !Object.keys(state.sync.synced.tasks).length;
+    if (nothingSynced && state.seeded) {
+      state.projects = []; state.cards = []; state.tasks = [];
+      state.seeded = false;
+      clearStats();
+      pulledChanges++;
+    }
+
+    await pullAll();
+    const sent = await pushChanges();
+    state.sync.lastSync = Date.now();
+    setSyncStatus('ok');
+    scheduleSave();
+    if (pulledChanges) { renderSidebar(); renderView(); }
+    renderSyncUI();
+    if (!o.silent) toast(sent ? 'Отправлено изменений: ' + sent : 'Всё синхронизировано');
+  } catch (e) {
+    setSyncStatus(e.status === 401 ? 'auth' : 'error', e.message);
+    renderSyncUI();
+    if (!o.silent) toast('Синхронизация: ' + e.message, { warn: true });
+  } finally {
+    state.sync.busy = false;
+    renderSyncUI();
+  }
+}
+
+function scheduleSync() {
+  if (!state.sync || !state.sync.session || state.sync.busy) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => syncNow({ silent: true }), 1500);
+}
+
+/* ---------- интерфейс ---------- */
+function timeAgo(ts) {
+  const d = Math.round((Date.now() - ts) / 1000);
+  if (d < 60) return 'только что';
+  if (d < 3600) return d + ' мин назад';
+  if (d < 86400) return Math.round(d / 3600) + ' ч назад';
+  return new Date(ts).toLocaleDateString('ru-RU');
+}
+
+function renderSyncUI() {
+  const chip = document.getElementById('syncChip');
+  if (!chip) return;
+  const s = state.sync;
+  let text = '☁ войти';
+  let cls = 'chip sync';
+
+  if (s.session) {
+    if (s.busy) { text = '⟳ синхронизация'; cls += ' work'; }
+    else if (s.status === 'auth') { text = '⚠ войти заново'; cls += ' bad'; }
+    else if (s.status === 'error') { text = '⚠ ошибка'; cls += ' bad'; }
+    else if (s.lastSync) { text = '☁ ' + timeAgo(s.lastSync); cls += ' ok'; }
+    else { text = '☁ синхронизировать'; }
+  }
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) text = '⚠ офлайн';
+
+  chip.textContent = text;
+  chip.className = cls;
+  chip.title = s.error ? ('Ошибка: ' + s.error) : 'Облако и синхронизация';
+}
+
+function openSyncModal() {
+  const s = state.sync;
+  const sess = s.session;
+
+  if (sess && sess.user) {
+    openModal('<h2>Облако</h2>' +
+      '<p class="small mut">Вы вошли как <b>' + esc(sess.user.email || sess.user.id) + '</b>. Данные синхронизируются между устройствами.</p>' +
+      (s.error ? '<div class="sync-error">' + esc(s.error) + '</div>' : '') +
+      '<div class="sync-rows">' +
+        '<div class="sync-row"><span class="k">Последняя синхронизация</span><span>' + (s.lastSync ? new Date(s.lastSync).toLocaleString('ru-RU') : 'ещё не было') + '</span></div>' +
+        '<div class="sync-row"><span class="k">Проектов / карточек / задач</span><span>' + state.projects.length + ' / ' + state.cards.length + ' / ' + state.tasks.length + '</span></div>' +
+      '</div>' +
+      '<div class="modal-foot"><div><button class="btn dan sm" data-action="signOut">Выйти из облака</button></div>' +
+      '<div class="right"><button class="btn" data-action="closeModal">Закрыть</button>' +
+      '<button class="btn pri" data-action="syncNow">Синхронизировать</button></div></div>');
+    return;
+  }
+
+  openModal('<h2>Вход в облако</h2>' +
+    '<p class="small mut">Данные будут синхронизироваться между телефоном и компьютером. Локальные записи не пропадут: при первом входе они загрузятся в облако.</p>' +
+    '<div class="field"><label>E-mail</label><input type="text" id="authEmail" autocomplete="username" placeholder="you@example.com"></div>' +
+    '<div class="field"><label>Пароль</label><input type="password" id="authPass" autocomplete="current-password" placeholder="не меньше 6 символов"></div>' +
+    '<div class="modal-foot"><div><button class="btn sm" data-action="authSignUp">Зарегистрироваться</button></div>' +
+    '<div class="right"><button class="btn" data-action="closeModal">Отмена</button>' +
+    '<button class="btn pri" data-action="authSignIn">Войти</button></div></div>');
+}
+
+async function doSignIn() {
+  const email = (document.getElementById('authEmail') || {}).value || '';
+  const pass = (document.getElementById('authPass') || {}).value || '';
+  if (!email.trim() || !pass) { toast('Введи e-mail и пароль', { warn: true }); return; }
+  try {
+    await sbSignIn(email.trim(), pass);
+    closeModal(); renderSyncUI();
+    toast('Вход выполнен, синхронизирую…');
+    await syncNow({ silent: true });
+    render();
+  } catch (e) {
+    toast('Вход: ' + e.message, { warn: true });
+  }
+}
+
+async function doSignUp() {
+  const email = (document.getElementById('authEmail') || {}).value || '';
+  const pass = (document.getElementById('authPass') || {}).value || '';
+  if (!email.trim() || !pass) { toast('Введи e-mail и пароль', { warn: true }); return; }
+  if (pass.length < 6) { toast('Пароль короче 6 символов', { warn: true }); return; }
+  try {
+    const d = await sbSignUp(email.trim(), pass);
+    if (!state.sync.session) {
+      toast('Аккаунт создан. Подтверди почту или выключи Confirm email в Supabase и войди.', { warn: true });
+      return;
+    }
+    closeModal(); renderSyncUI();
+    toast('Аккаунт создан, синхронизирую…');
+    await syncNow({ silent: true });
+    render();
+  } catch (e) {
+    toast('Регистрация: ' + e.message, { warn: true });
+  }
+}
+
+function initSync() {
+  state.sync.session = loadSession();
+  loadSynced();
+  renderSyncUI();
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('online', () => { renderSyncUI(); syncNow({ silent: true }); });
+    window.addEventListener('offline', renderSyncUI);
+  }
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) syncNow({ silent: true });
+    });
+  }
+  setInterval(() => { if (state.sync.session) syncNow({ silent: true }); }, 60000);
+  if (state.sync.session) setTimeout(() => syncNow({ silent: true }), 900);
+}
+
+/* ============================================================================
+   11. СТАРТ
+   ========================================================================== */
+load();
+renderTheme();
+render();
+initSync();
+
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('./sw.js').catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
