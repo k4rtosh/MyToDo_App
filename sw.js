@@ -1,8 +1,8 @@
-/* Service worker: офлайн-оболочка приложения «Задачи».
+/* Service worker: офлайн-оболочка приложения «MyToDo».
    Стратегия: навигация — сеть, при отсутствии сети — кэш;
    остальные GET — кэш, при промахе — сеть с докладыванием в кэш. */
 
-const CACHE = 'todo-shell-v18';
+const CACHE = 'todo-shell-v19';
 const ASSETS = [
   './',
   './index.html',

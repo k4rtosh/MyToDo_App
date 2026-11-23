@@ -22,7 +22,7 @@ INNER = 0.56              # диаметр кружка относительно
 SMALL = {16: (0.92, 0.63)}
 SUPERSAMPLE = 8           # рисуем крупно и уменьшаем: так края гладкие
 
-SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Задачи">
+SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="MyToDo">
   <rect width="64" height="64" fill="#ffffff"/>
   <circle cx="32" cy="32" r="{outer:.2f}" fill="#e7f4f1"/>
   <circle cx="32" cy="32" r="{inner:.2f}" fill="#0f766e"/>

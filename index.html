@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0f766e">
 <meta name="description" content="Проекты, карточки и задачи: офлайн, синхронизация между устройствами">
-<meta name="application-name" content="Задачи">
-<meta name="apple-mobile-web-app-title" content="Задачи">
-<title>Задачи</title>
+<meta name="application-name" content="MyToDo">
+<meta name="apple-mobile-web-app-title" content="MyToDo">
+<title>MyToDo</title>
 <style>
 /* ===== токены ===== */
 :root{
@@ -306,7 +306,6 @@ kbd{background:var(--line2);border:1px solid var(--line);border-radius:5px;paddi
 <link rel="icon" href="./icons/favicon-16.png" type="image/png" sizes="16x16">
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Задачи">
 <meta name="mobile-web-app-capable" content="yes">
 </head>
 <body>
@@ -341,7 +340,7 @@ kbd{background:var(--line2);border:1px solid var(--line);border-radius:5px;paddi
 
 <div class="app" id="app">
   <aside class="sidebar" id="sidebar">
-    <div class="brand"><span class="dot"></span> Задачи<button class="icon-btn side-close" data-action="closeDrawer" aria-label="Закрыть меню" title="Закрыть меню"><svg class="i sm"><use href="#i-x"/></svg></button></div>
+    <div class="brand"><span class="dot"></span> MyToDo<button class="icon-btn side-close" data-action="closeDrawer" aria-label="Закрыть меню" title="Закрыть меню"><svg class="i sm"><use href="#i-x"/></svg></button></div>
     <div class="side-scroll" id="sidebarNav"></div>
     <div class="side-foot">
       <button class="nav-item" data-action="toggleTheme" id="themeBtn" title="Тема"></button>
@@ -2374,7 +2373,7 @@ async function testNotification() {
   }
 
   try {
-    new Notification('Задачи', { body: 'Напоминания работают', icon: './icons/icon-192.png', tag: 'test' });
+    new Notification('MyToDo', { body: 'Напоминания работают', icon: './icons/icon-192.png', tag: 'test' });
     toast('Тестовое уведомление отправлено');
     return true;
   } catch (e) {

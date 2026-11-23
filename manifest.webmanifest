@@ -1,6 +1,6 @@
 {
-  "name": "Задачи",
-  "short_name": "Задачи",
+  "name": "MyToDo",
+  "short_name": "MyToDo",
   "description": "Проекты, карточки и задачи: офлайн, синхронизация между устройствами",
   "lang": "ru",
   "start_url": "./",
