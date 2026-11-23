@@ -56,6 +56,7 @@ h1,h2,h3,p{margin:0}
 .nav-item.active{background:var(--acc-soft);color:var(--acc);font-weight:600}
 .nav-item .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav-item .cnt{font-size:12px;color:var(--mut2);font-variant-numeric:tabular-nums}
+.nav-item.on{background:var(--acc-soft);color:var(--acc)}
 .nav-item.active .cnt{color:var(--acc)}
 .nav-item .alert{width:7px;height:7px;border-radius:50%;background:var(--hi)}
 .side-foot{border-top:1px solid var(--line);padding:8px;display:flex;gap:4px;flex-wrap:wrap}
@@ -144,6 +145,20 @@ h1,h2,h3,p{margin:0}
 }
 .task.flash{animation:flashTask 2s ease-out}
 .task.done.flash{animation:flashTask 2s ease-out}
+
+/* перетаскивание: ручка видна только в режиме «Вручную» */
+.task .drag{display:none;align-items:center;justify-content:center;flex:0 0 16px;color:var(--mut2);cursor:grab;touch-action:none;font-size:13px;line-height:1;border-radius:6px;align-self:stretch}
+.task.manual .drag{display:flex}
+.task .drag:active{cursor:grabbing;background:var(--line2)}
+.task.dragging{opacity:.55;border-color:var(--acc-line);box-shadow:var(--sh-lg)}
+body.dragging-body{user-select:none;cursor:grabbing}
+.task.manual:focus-visible{outline:2px solid var(--acc-line);outline-offset:2px}
+
+/* массовые операции */
+.bulkbar{position:sticky;bottom:10px;z-index:12;margin:10px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--elev);border:1px solid var(--acc-line);border-radius:var(--r);padding:9px 12px;box-shadow:var(--sh-lg)}
+.bulkbar .cnt{font-weight:700;font-size:13px;color:var(--acc)}
+.bulkbar .sp{flex:1}
+.task.picked{border-color:var(--acc-line);background:var(--acc-soft)}
 .task:hover{border-color:var(--line2)}
 .task.done{opacity:.55}
 .task.done .ttl{text-decoration:line-through;text-decoration-color:var(--mut2)}
@@ -270,6 +285,7 @@ kbd{background:var(--line2);border:1px solid var(--line);border-radius:5px;paddi
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></symbol>
   <symbol id="i-today" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="5"/></symbol>
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007 0l2-2a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-2 2a5 5 0 007 7l1-1"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M15 17H9m3-13a5 5 0 015 5c0 4 2 5 2 5H5s2-1 2-5a5 5 0 015-5zm-1.5 16a1.7 1.7 0 003 0"/></symbol>
   <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 000-8 6 6 0 00-11.6-1.5A4.5 4.5 0 007 18z"/></symbol>
   <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
   <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h9a6 6 0 010 12H7"/></symbol>
@@ -283,6 +299,7 @@ kbd{background:var(--line2);border:1px solid var(--line);border-radius:5px;paddi
     <div class="side-scroll" id="sidebarNav"></div>
     <div class="side-foot">
       <button class="nav-item" data-action="toggleTheme" id="themeBtn" title="Тема"></button>
+      <button class="nav-item" data-action="toggleReminders" id="bellBtn" title="Напоминания"><svg class="i"><use href="#i-bell"/></svg></button>
       <button class="nav-item" data-action="openSync" title="Облако и синхронизация"><svg class="i"><use href="#i-cloud"/></svg></button>
       <button class="nav-item" data-action="help" title="Горячие клавиши"><svg class="i"><use href="#i-help"/></svg></button>
       <button class="nav-item" data-action="exportJson" title="Выгрузить JSON"><svg class="i"><use href="#i-down"/></svg></button>
@@ -304,6 +321,7 @@ kbd{background:var(--line2);border:1px solid var(--line);border-radius:5px;paddi
 </div>
 
 <div class="scrim" data-action="closeDrawer"></div>
+<div class="sr" id="live" aria-live="polite"></div>
 <div id="modalRoot"></div>
 <div class="toasts" id="toasts"></div>
 <input type="file" id="jsonFile" accept=".json,application/json" class="hidden">
@@ -420,13 +438,13 @@ function dueInfo(iso) {
    3. МОДЕЛЬ
    ========================================================================== */
 const makeProject = (name, note) => ({ id: uid('p'), name: name || 'Без названия', note: note || '', createdAt: Date.now() });
-const makeCard = (projectId, name, date) => ({ id: uid('c'), projectId, name: name || 'Список', date: date || '', createdAt: Date.now() });
+const makeCard = (projectId, name, date) => ({ id: uid('c'), projectId, name: name || 'Список', date: date || '', createdAt: Date.now(), position: Date.now() });
 function makeTask(cardId, title) {
   const n = normalizeText(title);
   return {
     id: uid('t'), cardId, title: n.text || title, note: '', priority: 'normal',
     due: '', done: false, doneAt: null, subs: [], tags: detectTags(title),
-    links: n.links, paths: n.paths, createdAt: Date.now()
+    links: n.links, paths: n.paths, createdAt: Date.now(), position: Date.now()
   };
 }
 
@@ -459,6 +477,7 @@ function normalizeTask(t, cardId) {
   out.paths = (Array.isArray(src.paths) ? src.paths : []).filter(Boolean);
   out.updatedAt = Number(src.updatedAt) || 0;
   out.deletedAt = src.deletedAt || null;
+  out.position = Number(src.position) || Number(src.createdAt) || 0;
   return out;
 }
 
@@ -471,7 +490,8 @@ function normalizeCard(c) {
     date: String(src.date || ''),
     createdAt: Number(src.createdAt) || Date.now(),
     updatedAt: Number(src.updatedAt) || 0,
-    deletedAt: src.deletedAt || null
+    deletedAt: src.deletedAt || null,
+    position: Number(src.position) || Number(src.createdAt) || Date.now()
   };
 }
 
@@ -483,7 +503,8 @@ function normalizeProject(p) {
     note: String(src.note || ''),
     createdAt: Number(src.createdAt) || Date.now(),
     updatedAt: Number(src.updatedAt) || 0,
-    deletedAt: src.deletedAt || null
+    deletedAt: src.deletedAt || null,
+    position: Number(src.position) || Number(src.createdAt) || Date.now()
   };
 }
 function parseImport(text, cardId) {
@@ -527,7 +548,8 @@ const state = {
   projects: [], cards: [], tasks: [],
   route: { view: 'today', projectId: null, cardId: null },
   filter: 'active', sort: 'smart', query: '', tag: null, quick: null,
-  collapsed: {}, settings: { theme: 'light' }, ts: 0, seeded: false
+  collapsed: {}, settings: { theme: 'light', reminders: false }, ts: 0, seeded: false,
+  selectMode: false, selected: []
 };
 
 let storeOk = true, saveTimer = null, searchTimer = null, dirty = false;
@@ -594,7 +616,7 @@ function scheduleSave() { dirty = true; clearTimeout(saveTimer); saveTimer = set
    ========================================================================== */
 function projectById(id) { return state.projects.find(p => p.id === id && !p.deletedAt); }
 function cardById(id) { return state.cards.find(c => c.id === id && !c.deletedAt); }
-const cardsOf = pid => state.cards.filter(c => c.projectId === pid && !c.deletedAt).sort((a, b) => b.createdAt - a.createdAt);
+const cardsOf = pid => state.cards.filter(c => c.projectId === pid && !c.deletedAt).sort((a, b) => posOf(b) - posOf(a));
 const tasksOf = cid => state.tasks.filter(t => t.cardId === cid && !t.deletedAt);
 const taskById = id => state.tasks.find(t => t.id === id && !t.deletedAt);
 const subsDone = t => (Array.isArray(t.subs) ? t.subs : []).filter(s => s.done).length;
@@ -648,9 +670,16 @@ function sortTasks(list) {
   const rank = { high: 0, normal: 1, low: 2 };
   const dueRank = t => (t.due ? daysUntil(t.due) : 9999);
   const copy = list.slice();
+  if (state.sort === 'manual') return copy.sort((a, b) => posOf(a) - posOf(b) || a.createdAt - b.createdAt);
   if (state.sort === 'due') return copy.sort((a, b) => dueRank(a) - dueRank(b) || (rank[a.priority] - rank[b.priority]));
   if (state.sort === 'added') return copy.sort((a, b) => b.createdAt - a.createdAt);
   return copy.sort((a, b) => (taskDone(a) - taskDone(b)) || (rank[a.priority] - rank[b.priority]) || (dueRank(a) - dueRank(b)) || (a.createdAt - b.createdAt));
+}
+
+/* ручной порядок: у старых записей position нет — берём время создания */
+function posOf(x) {
+  if (x && typeof x.position === 'number' && isFinite(x.position)) return x.position;
+  return (x && x.createdAt) || 0;
 }
 
 function visibleTasks(cid) {
@@ -908,8 +937,11 @@ function renderCard() {
       '<option value="smart"' + (state.sort === 'smart' ? ' selected' : '') + '>По важности</option>' +
       '<option value="due"' + (state.sort === 'due' ? ' selected' : '') + '>По сроку</option>' +
       '<option value="added"' + (state.sort === 'added' ? ' selected' : '') + '>Новые сверху</option>' +
+      '<option value="manual"' + (state.sort === 'manual' ? ' selected' : '') + '>Вручную (перетаскиванием)</option>' +
     '</select>' +
     '<div class="meter" style="width:110px"><i style="width:' + pct + '%"></i></div>' +
+    '<button class="chip ' + (state.selectMode ? 'on' : '') + '" data-action="toggleSelect">' +
+      (state.selectMode ? 'Выбор включён' : 'Выбрать') + '</button>' +
   '</div>';
 
   const tagsRow = tags.length ? '<div class="filters">' + tags.map(([tag, n]) =>
@@ -917,8 +949,27 @@ function renderCard() {
       '<span class="n">' + n + '</span></button>').join('') +
     (state.tag ? '<button class="chip" data-tag="">сбросить</button>' : '') + '</div>' : '';
 
+  const curCardId = c.id;
+  const moveOptions = state.projects.map(pj => {
+    const cs = cardsOf(pj.id).filter(x => x.id !== curCardId);
+    if (!cs.length) return '';
+    return '<optgroup label="' + esc(pj.name) + '">' +
+      cs.map(x => '<option value="' + x.id + '">' + esc(x.name) + '</option>').join('') + '</optgroup>';
+  }).join('');
+
+  const bulkBar = state.selectMode ? '<div class="bulkbar">' +
+      '<span class="cnt">Выбрано: ' + state.selected.length + '</span>' +
+      '<button class="btn sm" data-action="bulkPickAll">Все</button>' +
+      '<div class="sp"></div>' +
+      '<button class="btn sm" data-action="bulkDone">Готово</button>' +
+      '<button class="btn sm dan" data-action="bulkDelete">Удалить</button>' +
+      (moveOptions ? '<select class="select" id="bulkCard" style="max-width:190px">' + moveOptions + '</select>' +
+        '<button class="btn sm" data-action="bulkMove">Перенести</button>' : '') +
+      '<button class="btn sm" data-action="bulkCancel">Отмена</button>' +
+    '</div>' : '';
+
   document.getElementById('view').innerHTML = head + '<div class="toolbar">' + quick + filters + tagsRow + '</div>' +
-    '<div id="taskList"></div>';
+    bulkBar + '<div id="taskList"></div>';
 
   renderTaskList();
   const qa = document.getElementById('quickAdd');
@@ -967,6 +1018,130 @@ function applyPendingFocus() {
   if (!pendingFocus.timer) {
     pendingFocus.timer = setTimeout(() => { pendingFocus = null; }, 2400);
   }
+}
+
+/* ---------- ручной порядок и перетаскивание ---------- */
+let dragState = null;
+
+function announce(text) {
+  const live = document.getElementById('live');
+  if (live) live.textContent = text;
+}
+
+/* ставим задачу между соседями, не пересчитывая позиции остальных */
+function placeTaskBetween(taskId, prevTask, nextTask) {
+  const t = taskById(taskId);
+  if (!t) return;
+  const p1 = prevTask ? posOf(prevTask) : null;
+  const p2 = nextTask ? posOf(nextTask) : null;
+  let pos;
+  if (p1 != null && p2 != null) pos = (p1 + p2) / 2;
+  else if (p1 != null) pos = p1 + 1000;
+  else if (p2 != null) pos = p2 - 1000;
+  else pos = 1000;
+  t.position = pos;
+  t.updatedAt = Date.now();
+  bump();
+  return pos;
+}
+
+function moveTaskByOffset(taskId, dir) {
+  if (state.sort !== 'manual') return;
+  const t = taskById(taskId);
+  if (!t) return;
+  const list = sortTasks(visibleTasks(t.cardId));
+  const i = list.findIndex(x => x.id === taskId);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  const ids = list.map(x => x.id);
+  ids.splice(i, 1);
+  ids.splice(j, 0, taskId);
+  const prev = j > 0 ? taskById(ids[j - 1]) : null;
+  const next = j < ids.length - 1 ? taskById(ids[j + 1]) : null;
+  placeTaskBetween(taskId, prev, next);
+  renderTaskList();
+  const el = document.querySelector('[data-task-id="' + taskId + '"]');
+  if (el && el.focus) el.focus();
+  announce('Позиция ' + (j + 1) + ' из ' + ids.length);
+}
+
+function startDrag(e, id) {
+  if (state.sort !== 'manual') return;
+  const el = document.querySelector('[data-task-id="' + id + '"]');
+  if (!el) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  e.preventDefault();
+  dragState = { id: id, el: el, lastY: e.clientY, moved: false };
+  el.classList.add('dragging');
+  if (document.body) document.body.classList.add('dragging-body');
+  document.addEventListener('pointermove', onDragMove);
+  document.addEventListener('pointerup', endDrag);
+  document.addEventListener('pointercancel', endDrag);
+}
+
+function onDragMove(e) {
+  if (!dragState) return;
+  if (Math.abs(e.clientY - dragState.lastY) > 2) dragState.moved = true;
+
+  if (typeof document.elementFromPoint === 'function') {
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const target = under && under.closest ? under.closest('.task') : null;
+    if (target && target !== dragState.el && target.parentElement === dragState.el.parentElement) {
+      const r = target.getBoundingClientRect();
+      const insertBefore = e.clientY < r.top + r.height / 2;
+      const parent = dragState.el.parentElement;
+      if (insertBefore) parent.insertBefore(dragState.el, target);
+      else parent.insertBefore(dragState.el, target.nextSibling);
+      dragState.lastY = e.clientY;
+    }
+  }
+
+  // автопрокрутка у краёв экрана
+  const edge = 70;
+  if (e.clientY < edge) window.scrollBy(0, -14);
+  else if (e.clientY > window.innerHeight - edge) window.scrollBy(0, 14);
+}
+
+function endDrag() {
+  const st = dragState;
+  if (!st) return;
+  dragState = null;
+  document.removeEventListener('pointermove', onDragMove);
+  document.removeEventListener('pointerup', endDrag);
+  document.removeEventListener('pointercancel', endDrag);
+  if (document.body) document.body.classList.remove('dragging-body');
+  st.el.classList.remove('dragging');
+  if (!st.moved) return;
+
+  const el = st.el;
+  let nextTask = null;
+  const nextEl = el.nextElementSibling;
+  if (nextEl && nextEl.dataset && nextEl.dataset.taskId) nextTask = taskById(nextEl.dataset.taskId);
+
+  let prevTask = null;
+  let p = el.previousElementSibling;
+  while (p && !(p.dataset && p.dataset.taskId)) p = p.previousElementSibling;
+  if (p && p.dataset) prevTask = taskById(p.dataset.taskId);
+
+  placeTaskBetween(st.id, prevTask, nextTask);
+  renderTaskList();
+  const again = document.querySelector('[data-task-id="' + st.id + '"]');
+  if (again && again.focus) again.focus();
+  announce('Задача перемещена');
+}
+
+function initDrag() {
+  document.addEventListener('pointerdown', e => {
+    const h = e.target && e.target.closest ? e.target.closest('[data-drag]') : null;
+    if (h) startDrag(e, h.dataset.drag);
+  });
+  document.addEventListener('keydown', e => {
+    if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    const el = e.target && e.target.closest ? e.target.closest('.task') : null;
+    if (!el) return;
+    e.preventDefault();
+    moveTaskByOffset(el.dataset.taskId, e.key === 'ArrowUp' ? -1 : 1);
+  });
 }
 
 function renderTaskList() {
@@ -1034,9 +1209,18 @@ function renderTask(t, idx, showPlace) {
   const hiddenCount = subs.length - shown.length;
   const moreBtn = hiddenCount > 0 ? '<button class="more" data-more="' + t.id + '">показать ещё ' + hiddenCount + '</button>' : '';
 
-  return '<article class="task ' + (done ? 'done' : '') + ' ' + (over ? 'over' : '') + '" data-task-id="' + t.id + '">' +
+  const manual = state.sort === 'manual';
+  const pickMode = !!state.selectMode;
+  const picked = pickMode && state.selected.indexOf(t.id) >= 0;
+  const lead = pickMode
+    ? '<button class="check sm pick' + (picked ? ' on' : '') + '" data-pick="' + t.id + '" aria-label="Выбрать задачу" aria-pressed="' + picked + '">' + icon('check', 'sm') + '</button>'
+    : (manual ? '<button class="drag" data-drag="' + t.id + '" aria-label="Перетащить задачу" title="Перетащить (Alt+↑/↓)">⋮⋮</button>' : '') +
+      '<button class="check ' + (done ? 'on' : '') + '" data-task="' + t.id + '" aria-label="Готово">' + icon('check', 'sm') + '</button>';
+
+  return '<article class="task ' + (done ? 'done' : '') + ' ' + (over ? 'over' : '') + (manual ? ' manual' : '') +
+      (picked ? ' picked' : '') + '" data-task-id="' + t.id + '"' + (manual ? ' tabindex="0"' : '') + '>' +
     '<div class="thead">' +
-      '<button class="check ' + (done ? 'on' : '') + '" data-task="' + t.id + '" aria-label="Готово">' + icon('check', 'sm') + '</button>' +
+      lead +
       '<div class="body">' +
         '<div class="ttl">' + linkify(t.title) + '</div>' +
         (taskMeta(t, showPlace) ? '<div class="meta">' + taskMeta(t, showPlace) + '</div>' : '') +
@@ -1058,13 +1242,14 @@ function renderTask(t, idx, showPlace) {
 function render() {
   parseHash();
   const key = state.route.view + '/' + (state.route.projectId || '') + '/' + (state.route.cardId || '');
-  if (key !== lastKey) { lastKey = key; state.query = ''; state.tag = null; state.quick = null; }
+  if (key !== lastKey) { lastKey = key; state.query = ''; state.tag = null; state.quick = null; state.selectMode = false; state.selected = []; }
   clearStats();
   renderSidebar();
   renderTopbar();
   renderView();
   renderTheme();
   renderSyncUI();
+  renderReminders();
   scheduleSave();
 }
 
@@ -1400,6 +1585,76 @@ function deleteCard(id) {
     bump(); render(); toast('Восстановлено');
   });
 }
+function togglePick(id) {
+  const i = state.selected.indexOf(id);
+  if (i >= 0) state.selected.splice(i, 1); else state.selected.push(id);
+  const on = state.selected.indexOf(id) >= 0;
+  const el = document.querySelector('[data-task-id="' + id + '"]');
+  if (el) {
+    el.classList.toggle('picked', on);
+    const b = el.querySelector('[data-pick]');
+    if (b) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
+  }
+  updateBulkCount();
+}
+
+function updateBulkCount() {
+  const c = document.querySelector('.bulkbar .cnt');
+  if (c) c.textContent = 'Выбрано: ' + state.selected.length;
+}
+
+function toggleSelectMode() {
+  state.selectMode = !state.selectMode;
+  state.selected = [];
+  renderCard();
+}
+
+function bulkDone() {
+  const ids = state.selected.slice();
+  if (!ids.length) { toast('Ничего не выбрано', { warn: true }); return; }
+  const now = Date.now();
+  ids.forEach(id => { const t = taskById(id); if (t) { t.done = true; t.doneAt = now; t.updatedAt = now; } });
+  state.selected = []; state.selectMode = false;
+  bump(); renderCard();
+  toast('Закрыто задач: ' + ids.length);
+}
+
+function bulkDelete() {
+  const ids = state.selected.slice();
+  const removed = ids.map(id => taskById(id)).filter(Boolean);
+  if (!removed.length) { toast('Ничего не выбрано', { warn: true }); return; }
+  const now = Date.now();
+  removed.forEach(t => { t.deletedAt = now; t.updatedAt = now; });
+  state.selected = []; state.selectMode = false;
+  bump(); renderCard();
+  undoToast('Удалено задач: ' + removed.length, () => {
+    removed.forEach(t => { t.deletedAt = null; t.updatedAt = Date.now(); });
+    bump(); render(); toast('Восстановлено');
+  });
+}
+
+function bulkMove() {
+  const ids = state.selected.slice();
+  if (!ids.length) { toast('Ничего не выбрано', { warn: true }); return; }
+  const sel = document.getElementById('bulkCard');
+  const cardId = sel ? sel.value : '';
+  if (!cardId) return;
+  const now = Date.now();
+  ids.forEach(id => { const t = taskById(id); if (t) { t.cardId = cardId; t.updatedAt = now; } });
+  const target = cardById(cardId);
+  state.selected = []; state.selectMode = false;
+  bump();
+  toast('Перенесено задач: ' + ids.length);
+  go('#/p/' + (target ? target.projectId : state.route.projectId) + '/c/' + cardId);
+}
+
+function bulkPickAll() {
+  const list = visibleTasks(state.route.cardId);
+  const all = list.length > 0 && state.selected.length === list.length;
+  state.selected = all ? [] : list.map(t => t.id);
+  renderCard();
+}
+
 function deleteTask(id) {
   const t = taskById(id);
   if (!t) return;
@@ -1522,7 +1777,7 @@ function initDrawerGestures() {
 }
 
 function onDocumentClick(e) {
-  const el = e.target.closest('[data-action],[data-nav],[data-task],[data-sub],[data-filter],[data-quick],[data-tag],[data-copy],[data-goto],[data-focus],[data-overlay]');
+  const el = e.target.closest('[data-action],[data-nav],[data-task],[data-sub],[data-filter],[data-quick],[data-tag],[data-copy],[data-goto],[data-focus],[data-overlay],[data-pick],[data-drag]');
   if (!el) return;
 
   if (el.dataset.copy) { e.preventDefault(); copyText(el.dataset.copy); return; }
@@ -1533,6 +1788,7 @@ function onDocumentClick(e) {
   if (el.dataset.filter) { state.filter = el.dataset.filter; renderCard(); scheduleSave(); return; }
   if (el.dataset.quick !== undefined) { state.quick = el.dataset.quick || null; renderCard(); scheduleSave(); return; }
   if (el.dataset.tag !== undefined) { state.tag = el.dataset.tag || null; renderCard(); scheduleSave(); return; }
+  if (el.dataset.pick) { togglePick(el.dataset.pick); return; }
   if (el.dataset.focus) { closeModal(); focusTask(el.dataset.focus); return; }
   if (el.dataset.goto) {
     const c = cardById(el.dataset.goto);
@@ -1545,12 +1801,20 @@ function onDocumentClick(e) {
   if (a === 'closeDrawer') { closeDrawer(); return; }
   if (a === 'openSearch') { openSearchModal(); return; }
   if (a === 'openSync') { openSyncModal(); return; }
+  if (a === 'toggleSelect') { toggleSelectMode(); return; }
+  if (a === 'bulkPickAll') { bulkPickAll(); return; }
+  if (a === 'bulkDone') { bulkDone(); return; }
+  if (a === 'bulkDelete') { bulkDelete(); return; }
+  if (a === 'bulkMove') { bulkMove(); return; }
+  if (a === 'bulkCancel') { state.selectMode = false; state.selected = []; renderCard(); return; }
   if (a === 'syncNow') { syncNow(); return; }
   if (a === 'signOut') { signOut(); return; }
   if (a === 'authSignIn') { doSignIn(); return; }
   if (a === 'authSignUp') { doSignUp(); return; }
   if (a === 'help') { openHelp(); return; }
   if (a === 'toggleTheme') { toggleTheme(); return; }
+  if (a === 'toggleReminders') { toggleReminders(); return; }
+  if (a === 'bellTest') { checkReminders(); toast('Проверка напоминаний выполнена'); return; }
   if (a === 'newProject') { closeDrawer(); openProjectModal(null); return; }
   if (a === 'newCard') { openCardModal(null); return; }
   if (a === 'newTask') { openTaskModal(null); return; }
@@ -1636,6 +1900,7 @@ document.addEventListener('keydown', e => {
   }
   if (e.key === 'Escape') {
     if (modalHtml()) { closeModal(); return; }
+    if (state.selectMode) { state.selectMode = false; state.selected = []; renderCard(); return; }
     closeDrawer();
     return;
   }
@@ -1678,7 +1943,89 @@ function copyText(text) {
 }
 
 /* ============================================================================
-   10. ОБЛАКО: Supabase — вход, синхронизация, слияние и конфликты
+   11. НАПОМИНАНИЯ (Notification API)
+   ========================================================================== */
+const LS_NOTIFIED = 'todoNotifiedV1';
+
+function remindersSupported() {
+  return typeof Notification !== 'undefined';
+}
+
+function loadNotified() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LS_NOTIFIED) || 'null');
+    if (d && d.date === isoDate(TODAY)) return Array.isArray(d.ids) ? d.ids : [];
+  } catch (e) {}
+  return [];
+}
+
+function saveNotified(ids) {
+  try { localStorage.setItem(LS_NOTIFIED, JSON.stringify({ date: isoDate(TODAY), ids: ids })); } catch (e) {}
+}
+
+/* задачи на сегодня и просроченные, о которых ещё не сообщали */
+function dueForReminder() {
+  const sent = loadNotified();
+  return state.tasks.filter(t => !t.deletedAt && !taskDone(t) && t.due &&
+    daysUntil(t.due) <= 0 && sent.indexOf(t.id) < 0);
+}
+
+function checkReminders() {
+  if (!state.settings.reminders) return;
+  if (!remindersSupported() || Notification.permission !== 'granted') return;
+  const list = dueForReminder();
+  if (!list.length) return;
+
+  list.slice(0, 3).forEach(t => {
+    try {
+      const n = new Notification('Задача на сегодня', {
+        body: t.title, tag: t.id, icon: './icons/icon-192.png'
+      });
+      n.onclick = () => { try { window.focus(); } catch (e) {} focusTask(t.id); n.close(); };
+    } catch (e) {}
+  });
+
+  saveNotified(loadNotified().concat(list.map(t => t.id)));
+  if (list.length > 3) toast('Ещё ' + (list.length - 3) + ' задач с сегодняшним сроком');
+}
+
+async function toggleReminders() {
+  if (!remindersSupported()) { toast('Браузер не умеет уведомления', { warn: true }); return; }
+
+  if (state.settings.reminders) {
+    state.settings.reminders = false;
+    toast('Напоминания выключены');
+  } else {
+    let perm = Notification.permission;
+    if (perm === 'default') {
+      try { perm = await Notification.requestPermission(); } catch (e) { perm = 'denied'; }
+    }
+    if (perm !== 'granted') { toast('Браузер запретил уведомления', { warn: true }); return; }
+    state.settings.reminders = true;
+    toast('Напоминания включены');
+    checkReminders();
+  }
+
+  scheduleSave();
+  renderReminders();
+}
+
+function renderReminders() {
+  const btn = document.getElementById('bellBtn');
+  if (!btn) return;
+  const on = !!state.settings.reminders;
+  btn.classList.toggle('on', on);
+  btn.title = on ? 'Напоминания включены (нажми, чтобы выключить)' : 'Включить напоминания о задачах на сегодня';
+}
+
+function initReminders() {
+  renderReminders();
+  if (state.settings.reminders) setTimeout(checkReminders, 3000);
+  setInterval(checkReminders, 60000);
+}
+
+/* ============================================================================
+   12. ОБЛАКО: Supabase — вход, синхронизация, слияние и конфликты
    ========================================================================== */
 const SB_URL = 'https://ojxvxvqdesgjrdunhbkq.supabase.co';
 const SB_KEY = 'sb_publishable_1SsaZNX9YkaiMMgKMFnw3Q_JaUROD3e';
@@ -1805,16 +2152,17 @@ const toIso = ms => (ms ? new Date(ms).toISOString() : null);
 const fromIso = s => (s ? new Date(s).getTime() : 0);
 
 function rowFor(table, x, userId) {
+  const pos = Number(x.position) || 0;
   if (table === 'projects') {
-    return { id: x.id, owner_id: userId, name: x.name || '', note: x.note || '',
+    return { id: x.id, owner_id: userId, name: x.name || '', note: x.note || '', position: pos,
       created_at: toIso(x.createdAt), updated_at: toIso(x.updatedAt), deleted_at: toIso(x.deletedAt) };
   }
   if (table === 'cards') {
-    return { id: x.id, owner_id: userId, project_id: x.projectId, name: x.name || '',
+    return { id: x.id, owner_id: userId, project_id: x.projectId, name: x.name || '', position: pos,
       date_label: x.date || '', created_at: toIso(x.createdAt), updated_at: toIso(x.updatedAt),
       deleted_at: toIso(x.deletedAt) };
   }
-  return { id: x.id, owner_id: userId, card_id: x.cardId, title: x.title || '', note: x.note || '',
+  return { id: x.id, owner_id: userId, card_id: x.cardId, title: x.title || '', note: x.note || '', position: pos,
     priority: x.priority || 'normal', due: x.due || null, done: !!x.done, done_at: toIso(x.doneAt),
     subs: x.subs || [], tags: x.tags || [], links: x.links || [], paths: x.paths || [],
     created_at: toIso(x.createdAt), updated_at: toIso(x.updatedAt), deleted_at: toIso(x.deletedAt) };
@@ -1823,12 +2171,14 @@ function fromRowFor(table, r) {
   if (table === 'projects') {
     return { id: r.id, name: r.name || '', note: r.note || '',
       createdAt: fromIso(r.created_at) || Date.now(), updatedAt: fromIso(r.updated_at) || 0,
-      deletedAt: fromIso(r.deleted_at) || null };
+      deletedAt: fromIso(r.deleted_at) || null,
+      position: Number(r.position) || fromIso(r.created_at) || Date.now() };
   }
   if (table === 'cards') {
     return { id: r.id, projectId: r.project_id, name: r.name || '', date: r.date_label || '',
       createdAt: fromIso(r.created_at) || Date.now(), updatedAt: fromIso(r.updated_at) || 0,
-      deletedAt: fromIso(r.deleted_at) || null };
+      deletedAt: fromIso(r.deleted_at) || null,
+      position: Number(r.position) || fromIso(r.created_at) || Date.now() };
   }
   const t = normalizeTask(Object.assign({}, r, {
     cardId: r.card_id, doneAt: fromIso(r.done_at) || null, createdAt: fromIso(r.created_at) || Date.now()
@@ -1846,11 +2196,26 @@ function sig(x) {
 /* ---------- отправка изменений ---------- */
 async function upsertRows(table, rows) {
   if (!rows.length) return;
-  await sbFetch('/rest/v1/' + table + '?on_conflict=id', {
+  const send = list => sbFetch('/rest/v1/' + table + '?on_conflict=id', {
     method: 'POST',
     headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify(rows)
+    body: JSON.stringify(list)
   });
+  try {
+    await send(rows);
+  } catch (e) {
+    // в базе ещё нет колонки position — работаем без неё, чтобы синхронизация не встала
+    const msg = String((e && e.message) || '');
+    if (e && e.status === 400 && msg.indexOf('position') >= 0) {
+      if (!state.sync.noPosition) {
+        state.sync.noPosition = true;
+        toast('В базе нет колонки position — выполни supabase/002-position.sql', { warn: true });
+      }
+      await send(rows.map(r => { const c = Object.assign({}, r); delete c.position; return c; }));
+      return;
+    }
+    throw e;
+  }
 }
 async function deleteRow(table, id) {
   await sbFetch('/rest/v1/' + table + '?id=eq.' + encodeURIComponent(id), {
@@ -1991,7 +2356,7 @@ async function syncNow(opts) {
     state.sync.lastSync = Date.now();
     setSyncStatus('ok');
     scheduleSave();
-    if (pulledChanges) { renderSidebar(); renderView(); }
+    if (pulledChanges) { renderSidebar(); renderView(); checkReminders(); }
     renderSyncUI();
     if (!o.silent) toast(sent ? 'Отправлено изменений: ' + sent : 'Всё синхронизировано');
   } catch (e) {
@@ -2129,6 +2494,8 @@ renderTheme();
 render();
 initSync();
 initDrawerGestures();
+initDrag();
+initReminders();
 
 </script>
 
