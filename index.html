@@ -57,6 +57,7 @@ h1,h2,h3,p{margin:0}
 .nav-item .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav-item .cnt{font-size:12px;color:var(--mut2);font-variant-numeric:tabular-nums}
 .nav-item.on{background:var(--acc-soft);color:var(--acc)}
+.nav-item.warn{background:var(--warn-soft);color:var(--warn)}
 .nav-item.active .cnt{color:var(--acc)}
 .nav-item .alert{width:7px;height:7px;border-radius:50%;background:var(--hi)}
 .side-foot{border-top:1px solid var(--line);padding:8px;display:flex;gap:4px;flex-wrap:wrap}
@@ -1419,7 +1420,13 @@ function openConfirm(text, action, id, label) {
    ========================================================================== */
 function toast(msg, opts) {
   const box = document.getElementById('toasts');
+  if (!box) return;
+  // одинаковые сообщения не копим стопкой
+  Array.from(box.children || []).forEach(old => {
+    if (old.dataset && old.dataset.msg === msg) old.remove();
+  });
   const el = document.createElement('div');
+  el.dataset.msg = msg;
   el.className = 'toast ' + (opts && opts.warn ? 'warn' : '');
   el.innerHTML = '<span>' + esc(msg) + '</span>';
   if (opts && opts.action) {
@@ -1953,6 +1960,33 @@ function remindersSupported() {
   return typeof Notification !== 'undefined';
 }
 
+/* что на самом деле происходит с уведомлениями */
+function notifState() {
+  const supported = remindersSupported();
+  const permission = supported ? Notification.permission : 'unsupported';
+  const secure = (typeof window === 'undefined' || window.isSecureContext !== false);
+  // file:// браузер считает «локальным документом»: запрос покажет, но разрешение не выдаст
+  const fileUrl = (typeof location !== 'undefined' && String(location.protocol) === 'file:');
+  const wanted = !!state.settings.reminders;
+  return {
+    supported: supported,
+    permission: permission,
+    secure: secure,
+    fileUrl: fileUrl,
+    wanted: wanted,
+    effective: supported && !fileUrl && secure && permission === 'granted' && wanted
+  };
+}
+
+async function requestNotifPermission() {
+  if (!remindersSupported()) return 'unsupported';
+  let perm = Notification.permission;
+  if (perm === 'default') {
+    try { perm = await Notification.requestPermission(); } catch (e) { perm = 'denied'; }
+  }
+  return perm;
+}
+
 function loadNotified() {
   try {
     const d = JSON.parse(localStorage.getItem(LS_NOTIFIED) || 'null');
@@ -1973,8 +2007,8 @@ function dueForReminder() {
 }
 
 function checkReminders() {
-  if (!state.settings.reminders) return;
-  if (!remindersSupported() || Notification.permission !== 'granted') return;
+  const st = notifState();
+  if (!st.effective) return;
   const list = dueForReminder();
   if (!list.length) return;
 
@@ -1993,11 +2027,23 @@ function checkReminders() {
 
 async function enableReminders() {
   if (!remindersSupported()) { toast('Браузер не умеет уведомления', { warn: true }); return false; }
-  let perm = Notification.permission;
-  if (perm === 'default') {
-    try { perm = await Notification.requestPermission(); } catch (e) { perm = 'denied'; }
+  if (notifState().fileUrl) {
+    toast('Открыто как файл: уведомления не работают. Нужен https или localhost', { warn: true });
+    return false;
   }
-  if (perm !== 'granted') { toast('Браузер запретил уведомления', { warn: true }); return false; }
+  if (typeof window !== 'undefined' && window.isSecureContext === false) {
+    toast('Уведомления работают только по https или на localhost', { warn: true });
+    return false;
+  }
+
+  const perm = await requestNotifPermission();
+  if (perm !== 'granted') {
+    toast(perm === 'denied'
+      ? 'Браузер заблокировал уведомления: замок в адресной строке → Уведомления → Разрешить'
+      : 'Браузер не показал запрос. Разреши уведомления через замок в адресной строке', { warn: true });
+    renderReminders();
+    return false;
+  }
 
   state.settings.reminders = true;
   scheduleSave();
@@ -2014,11 +2060,26 @@ function disableReminders() {
   toast('Напоминания выключены');
 }
 
-/* тестовое уведомление — чтобы проверка занимала секунды, а не полдня */
-function testNotification() {
+/* тестовое уведомление: если разрешения нет — сначала спрашиваем */
+async function testNotification() {
   if (!remindersSupported()) { toast('Браузер не умеет уведомления', { warn: true }); return false; }
-  const perm = Notification.permission;
-  if (perm !== 'granted') { toast('Сначала разреши уведомления (сейчас: ' + perm + ')', { warn: true }); return false; }
+  if (notifState().fileUrl) {
+    toast('Открыто как файл: уведомления не работают. Нужен https или localhost', { warn: true });
+    return false;
+  }
+  if (typeof window !== 'undefined' && window.isSecureContext === false) {
+    toast('Уведомления работают только по https или на localhost', { warn: true });
+    return false;
+  }
+
+  const perm = await requestNotifPermission();
+  if (perm !== 'granted') {
+    toast(perm === 'denied'
+      ? 'Уведомления запрещены: замок в адресной строке → Уведомления → Разрешить'
+      : 'Разрешение не выдано — браузер не показал запрос', { warn: true });
+    return false;
+  }
+
   try {
     new Notification('Задачи', { body: 'Напоминания работают', icon: './icons/icon-192.png', tag: 'test' });
     toast('Тестовое уведомление отправлено');
@@ -2030,31 +2091,50 @@ function testNotification() {
 }
 
 function openRemindersModal() {
-  const on = !!state.settings.reminders;
-  const perm = remindersSupported() ? Notification.permission : 'не поддерживается';
-  const pending = on ? dueForReminder().length : 0;
-  const permText = { granted: 'разрешены', default: 'не спрашивали', denied: 'запрещены браузером' }[perm] || perm;
+  const st = notifState();
+  const pending = st.effective ? dueForReminder().length : 0;
+
+  const stateText = st.fileUrl ? 'недоступны (открыто как файл)'
+    : st.effective ? 'включены'
+    : (st.wanted ? 'включены, но браузер не разрешил' : 'выключены');
+
+  const permText = {
+    granted: 'разрешены', default: 'не спрашивали', denied: 'запрещены браузером',
+    unsupported: 'браузер не поддерживает'
+  }[st.permission] || st.permission;
+
+  const hint = st.fileUrl
+    ? 'Приложение открыто как локальный файл (file://). Браузер показывает запрос, но разрешение такому документу не выдаёт — поэтому уведомлений нет. Открой через https (GitHub Pages) или через http://localhost (например, python -m http.server).'
+    : !st.supported ? 'Браузер не поддерживает уведомления.'
+    : !st.secure ? 'Уведомления работают только по https или на localhost. Открой приложение через GitHub Pages — тогда запрос разрешения появится.'
+    : st.permission === 'denied' ? 'Уведомления заблокированы для этого сайта. Разреши их в настройках сайта: значок замка в адресной строке → Уведомления → Разрешить.'
+    : st.permission === 'default' ? 'Разрешение ещё не выдано. Нажми «Разрешить и включить» — браузер покажет запрос.'
+    : '';
 
   openModal('<h2>Напоминания</h2>' +
     '<p class="small mut">Уведомление о задаче со сроком «сегодня» (и о просроченных) — один раз в день, пока приложение открыто.</p>' +
     '<div class="sync-rows">' +
-      '<div class="sync-row"><span class="k">Состояние</span><span>' + (on ? 'включены' : 'выключены') + '</span></div>' +
+      '<div class="sync-row"><span class="k">Состояние</span><span>' + esc(stateText) + '</span></div>' +
       '<div class="sync-row"><span class="k">Разрешение браузера</span><span>' + esc(permText) + '</span></div>' +
       '<div class="sync-row"><span class="k">Ждут напоминания сейчас</span><span>' + pending + '</span></div>' +
     '</div>' +
-    '<div class="modal-foot"><div>' + (on ? '<button class="btn dan sm" data-action="remindersOff">Выключить</button>' : '') + '</div>' +
+    (hint ? '<div class="sync-error">' + esc(hint) + '</div>' : '') +
+    '<div class="modal-foot"><div>' + (st.wanted ? '<button class="btn dan sm" data-action="remindersOff">Выключить</button>' : '') + '</div>' +
     '<div class="right"><button class="btn" data-action="closeModal">Закрыть</button>' +
     '<button class="btn" data-action="reminderTest">Проверить уведомление</button>' +
-    (on ? '' : '<button class="btn pri" data-action="remindersOn">Включить</button>') +
+    (!st.effective ? '<button class="btn pri" data-action="remindersOn">Разрешить и включить</button>' : '') +
     '</div></div>');
 }
 
 function renderReminders() {
   const btn = document.getElementById('bellBtn');
   if (!btn) return;
-  const on = !!state.settings.reminders;
-  btn.classList.toggle('on', on);
-  btn.title = on ? 'Напоминания включены' : 'Напоминания выключены — нажми, чтобы настроить';
+  const st = notifState();
+  btn.classList.toggle('on', st.effective);
+  btn.classList.toggle('warn', st.wanted && !st.effective);
+  btn.title = st.effective ? 'Напоминания включены'
+    : st.wanted ? 'Напоминания включены, но браузер не разрешил — нажми, чтобы исправить'
+    : 'Напоминания выключены — нажми, чтобы настроить';
 }
 
 function initReminders() {
