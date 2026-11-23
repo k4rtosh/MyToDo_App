@@ -2,7 +2,7 @@
    Стратегия: навигация — сеть, при отсутствии сети — кэш;
    остальные GET — кэш, при промахе — сеть с докладыванием в кэш. */
 
-const CACHE = 'todo-shell-v16';
+const CACHE = 'todo-shell-v17';
 const ASSETS = [
   './',
   './index.html',
