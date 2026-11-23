@@ -2116,6 +2116,8 @@ function openRemindersModal() {
     '<div class="sync-rows">' +
       '<div class="sync-row"><span class="k">Состояние</span><span>' + esc(stateText) + '</span></div>' +
       '<div class="sync-row"><span class="k">Разрешение браузера</span><span>' + esc(permText) + '</span></div>' +
+      '<div class="sync-row"><span class="k">Адрес</span><span>' +
+        esc((typeof location !== 'undefined' ? location.protocol + '//' + (location.host || '') : '')) + '</span></div>' +
       '<div class="sync-row"><span class="k">Ждут напоминания сейчас</span><span>' + pending + '</span></div>' +
     '</div>' +
     (hint ? '<div class="sync-error">' + esc(hint) + '</div>' : '') +
