@@ -296,7 +296,7 @@ kbd{background:var(--line2);border:1px solid var(--line);border-radius:5px;paddi
       <div class="crumbs" id="crumbs"></div>
       <div class="spacer"></div>
       <button class="chip sync" id="syncChip" data-action="openSync" title="Облако">☁ …</button>
-      <button class="btn ghost sm" data-action="openSearch" title="Поиск (Ctrl+M)"><svg class="i sm"><use href="#i-search"/></svg> Поиск</button>
+      <button class="btn ghost sm" data-action="openSearch" title="Поиск (F2)"><svg class="i sm"><use href="#i-search"/></svg> Поиск</button>
       <button class="btn pri sm" id="addBtn" data-action="add"><svg class="i sm"><use href="#i-plus"/></svg> <span id="addLabel">Задача</span></button>
     </div>
     <div class="content" id="view"></div>
@@ -1200,12 +1200,20 @@ function openSearchModal() {
   inp.focus();
 }
 
+function focusCardSearch() {
+  if (state.route.view !== 'card') { toast('Поиск по карточке — внутри карточки'); return; }
+  const q = document.getElementById('cardSearch');
+  if (!q) return;
+  q.focus();
+  if (q.select) q.select();
+}
+
 function openHelp() {
   openModal('<h2>Горячие клавиши</h2>' +
     '<div class="field" style="gap:10px">' +
+      '<div><kbd>F2</kbd> — поиск по всем задачам</div>' +
+      '<div><kbd>Shift</kbd>+<kbd>F2</kbd> — поиск по карточке</div>' +
       '<div><kbd>n</kbd> — новая задача / карточка / проект (по контексту)</div>' +
-      '<div><kbd>/</kbd> — поиск по карточке</div>' +
-      '<div><kbd>Ctrl</kbd>+<kbd>M</kbd> — поиск по всем задачам</div>' +
       '<div><kbd>Esc</kbd> — закрыть окно</div>' +
       '<div><kbd>Enter</kbd> — сохранить в окне (в тексте — <kbd>Ctrl</kbd>+<kbd>Enter</kbd>)</div>' +
       '<div><kbd>?</kbd> — эта справка</div>' +
@@ -1619,8 +1627,13 @@ document.addEventListener('keydown', e => {
   const tag = (e.target && e.target.tagName || '').toLowerCase();
   const typing = tag === 'input' || tag === 'textarea' || tag === 'select';
 
-  // Ctrl+M: Ctrl+K занят адресной строкой Chrome и перехватывается браузером
-  if (e.ctrlKey && !e.altKey && !e.shiftKey && (e.key === 'm' || e.key === 'M')) { e.preventDefault(); openSearchModal(); return; }
+  // F2 — поиск по всем задачам, Shift+F2 — поиск в текущей карточке.
+  // Буквенные комбинации не используем: на русской раскладке они требуют переключения языка.
+  if (e.key === 'F2') {
+    e.preventDefault();
+    if (e.shiftKey) focusCardSearch(); else openSearchModal();
+    return;
+  }
   if (e.key === 'Escape') {
     if (modalHtml()) { closeModal(); return; }
     closeDrawer();
@@ -1634,12 +1647,6 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.key === '?') { openHelp(); return; }
-  if (e.key === '/' ) {
-    e.preventDefault();
-    if (state.route.view === 'card') { const q = document.getElementById('cardSearch'); if (q) q.focus(); }
-    else openSearchModal();
-    return;
-  }
   if (e.key === 'n' || e.key === 'N' || e.key === 'т' || e.key === 'Т') {
     e.preventDefault();
     if (state.route.view === 'card') openTaskModal(null);
