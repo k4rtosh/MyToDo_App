@@ -1813,8 +1813,10 @@ function onDocumentClick(e) {
   if (a === 'authSignUp') { doSignUp(); return; }
   if (a === 'help') { openHelp(); return; }
   if (a === 'toggleTheme') { toggleTheme(); return; }
-  if (a === 'toggleReminders') { toggleReminders(); return; }
-  if (a === 'bellTest') { checkReminders(); toast('Проверка напоминаний выполнена'); return; }
+  if (a === 'toggleReminders') { openRemindersModal(); return; }
+  if (a === 'remindersOn') { enableReminders().then(ok => { if (ok) openRemindersModal(); }); return; }
+  if (a === 'remindersOff') { disableReminders(); openRemindersModal(); return; }
+  if (a === 'reminderTest') { testNotification(); return; }
   if (a === 'newProject') { closeDrawer(); openProjectModal(null); return; }
   if (a === 'newCard') { openCardModal(null); return; }
   if (a === 'newTask') { openTaskModal(null); return; }
@@ -1989,25 +1991,62 @@ function checkReminders() {
   if (list.length > 3) toast('Ещё ' + (list.length - 3) + ' задач с сегодняшним сроком');
 }
 
-async function toggleReminders() {
-  if (!remindersSupported()) { toast('Браузер не умеет уведомления', { warn: true }); return; }
-
-  if (state.settings.reminders) {
-    state.settings.reminders = false;
-    toast('Напоминания выключены');
-  } else {
-    let perm = Notification.permission;
-    if (perm === 'default') {
-      try { perm = await Notification.requestPermission(); } catch (e) { perm = 'denied'; }
-    }
-    if (perm !== 'granted') { toast('Браузер запретил уведомления', { warn: true }); return; }
-    state.settings.reminders = true;
-    toast('Напоминания включены');
-    checkReminders();
+async function enableReminders() {
+  if (!remindersSupported()) { toast('Браузер не умеет уведомления', { warn: true }); return false; }
+  let perm = Notification.permission;
+  if (perm === 'default') {
+    try { perm = await Notification.requestPermission(); } catch (e) { perm = 'denied'; }
   }
+  if (perm !== 'granted') { toast('Браузер запретил уведомления', { warn: true }); return false; }
 
+  state.settings.reminders = true;
   scheduleSave();
   renderReminders();
+  toast('Напоминания включены');
+  checkReminders();
+  return true;
+}
+
+function disableReminders() {
+  state.settings.reminders = false;
+  scheduleSave();
+  renderReminders();
+  toast('Напоминания выключены');
+}
+
+/* тестовое уведомление — чтобы проверка занимала секунды, а не полдня */
+function testNotification() {
+  if (!remindersSupported()) { toast('Браузер не умеет уведомления', { warn: true }); return false; }
+  const perm = Notification.permission;
+  if (perm !== 'granted') { toast('Сначала разреши уведомления (сейчас: ' + perm + ')', { warn: true }); return false; }
+  try {
+    new Notification('Задачи', { body: 'Напоминания работают', icon: './icons/icon-192.png', tag: 'test' });
+    toast('Тестовое уведомление отправлено');
+    return true;
+  } catch (e) {
+    toast('Не удалось показать: ' + e.message, { warn: true });
+    return false;
+  }
+}
+
+function openRemindersModal() {
+  const on = !!state.settings.reminders;
+  const perm = remindersSupported() ? Notification.permission : 'не поддерживается';
+  const pending = on ? dueForReminder().length : 0;
+  const permText = { granted: 'разрешены', default: 'не спрашивали', denied: 'запрещены браузером' }[perm] || perm;
+
+  openModal('<h2>Напоминания</h2>' +
+    '<p class="small mut">Уведомление о задаче со сроком «сегодня» (и о просроченных) — один раз в день, пока приложение открыто.</p>' +
+    '<div class="sync-rows">' +
+      '<div class="sync-row"><span class="k">Состояние</span><span>' + (on ? 'включены' : 'выключены') + '</span></div>' +
+      '<div class="sync-row"><span class="k">Разрешение браузера</span><span>' + esc(permText) + '</span></div>' +
+      '<div class="sync-row"><span class="k">Ждут напоминания сейчас</span><span>' + pending + '</span></div>' +
+    '</div>' +
+    '<div class="modal-foot"><div>' + (on ? '<button class="btn dan sm" data-action="remindersOff">Выключить</button>' : '') + '</div>' +
+    '<div class="right"><button class="btn" data-action="closeModal">Закрыть</button>' +
+    '<button class="btn" data-action="reminderTest">Проверить уведомление</button>' +
+    (on ? '' : '<button class="btn pri" data-action="remindersOn">Включить</button>') +
+    '</div></div>');
 }
 
 function renderReminders() {
@@ -2015,7 +2054,7 @@ function renderReminders() {
   if (!btn) return;
   const on = !!state.settings.reminders;
   btn.classList.toggle('on', on);
-  btn.title = on ? 'Напоминания включены (нажми, чтобы выключить)' : 'Включить напоминания о задачах на сегодня';
+  btn.title = on ? 'Напоминания включены' : 'Напоминания выключены — нажми, чтобы настроить';
 }
 
 function initReminders() {
