@@ -1477,6 +1477,7 @@ function toggleTask(id) {
   const now = !taskDone(t);
   t.done = now; t.doneAt = now ? Date.now() : null;
   t.subs.forEach(s => s.done = now);
+  t.updatedAt = Date.now();
   bump();
   if (state.route.view === 'today') renderView(); else patchTask(id);
   renderSidebar();
@@ -1489,6 +1490,7 @@ function toggleSub(key) {
   s.done = !s.done;
   const subs = t.subs || [];
   t.done = subs.length > 0 && subs.every(x => x.done);
+  t.updatedAt = Date.now();
   bump();
   if (state.route.view === 'today') renderView(); else patchTask(tid);
 }
@@ -2002,6 +2004,7 @@ function onDocumentClick(e) {
   if (a === 'bulkMove') { bulkMove(); return; }
   if (a === 'bulkCancel') { state.selectMode = false; state.selected = []; renderCard(); return; }
   if (a === 'syncNow') { syncNow(); return; }
+  if (a === 'syncPull') { syncPull(); return; }
   if (a === 'signOut') { signOut(); return; }
   if (a === 'authSignIn') { doSignIn(); return; }
   if (a === 'authSignUp') { doSignUp(); return; }
@@ -2593,7 +2596,22 @@ async function pushChanges() {
 function isDirty(table, x) {
   if (x.deletedAt) return true;
   const sent = state.sync.synced[table][x.id];
-  return sent === undefined || sent !== sig(x);
+  // про строку, которую это устройство ещё ни разу не отправляло и не получало,
+  // ничего не знаем: при первой встрече верим облаку, а не локальной копии
+  if (sent === undefined) return false;
+  return sent !== sig(x);
+}
+
+/* сколько строк реально отличается от облачного состояния */
+function pendingCount() {
+  let n = 0;
+  TABLES.forEach(table => {
+    (state[table] || []).forEach(x => {
+      if (x.deletedAt) { n++; return; }
+      if (state.sync.synced[table][x.id] !== sig(x)) n++;
+    });
+  });
+  return n;
 }
 
 function mergeRows(table, rows) {
@@ -2680,11 +2698,44 @@ async function syncNow(opts) {
     scheduleSave();
     if (pulledChanges) { renderSidebar(); renderView(); checkReminders(); }
     renderSyncUI();
+    if (sent || pulledChanges) logHistory('sync', 'Синхронизация: отправлено ' + sent + ', получено ' + pulledChanges);
     if (!o.silent) toast(sent ? 'Отправлено изменений: ' + sent : 'Всё синхронизировано');
   } catch (e) {
     setSyncStatus(e.status === 401 ? 'auth' : 'error', e.message);
     renderSyncUI();
     if (!o.silent) toast('Синхронизация: ' + e.message, { warn: true });
+  } finally {
+    state.sync.busy = false;
+    renderSyncUI();
+  }
+}
+
+/* принудительно забрать облако: используется, когда устройства разошлись */
+async function syncPull() {
+  if (!state.sync.session) { openSyncModal(); return; }
+  if (state.sync.busy) return;
+  const user = state.sync.session.user;
+  if (!user || !user.id) { setSyncStatus('auth', 'нужно войти заново'); renderSyncUI(); return; }
+
+  state.sync.busy = true;
+  setSyncStatus('syncing');
+  renderSyncUI();
+
+  try {
+    if (!(await ensureFresh())) throw Object.assign(new Error('сессия истекла, войди заново'), { status: 401 });
+    // забываем, что «уже отправлено»: облако становится главным
+    TABLES.forEach(t => { state.sync.synced[t] = {}; });
+    pulledChanges = 0;
+    await pullAll();
+    state.sync.lastSync = Date.now();
+    setSyncStatus('ok');
+    scheduleSave();
+    renderSidebar(); renderView();
+    logHistory('sync', 'Забрано из облака: изменено ' + pulledChanges);
+    toast('Забрано из облака: изменено ' + pulledChanges);
+  } catch (e) {
+    setSyncStatus(e.status === 401 ? 'auth' : 'error', e.message);
+    toast('Не удалось забрать: ' + e.message, { warn: true });
   } finally {
     state.sync.busy = false;
     renderSyncUI();
@@ -2732,15 +2783,19 @@ function openSyncModal() {
   const sess = s.session;
 
   if (sess && sess.user) {
+    const pend = pendingCount();
     openModal('<h2>Облако</h2>' +
       '<p class="small mut">Вы вошли как <b>' + esc(sess.user.email || sess.user.id) + '</b>. Данные синхронизируются между устройствами.</p>' +
       (s.error ? '<div class="sync-error">' + esc(s.error) + '</div>' : '') +
       '<div class="sync-rows">' +
         '<div class="sync-row"><span class="k">Последняя синхронизация</span><span>' + (s.lastSync ? new Date(s.lastSync).toLocaleString('ru-RU') : 'ещё не было') + '</span></div>' +
+        '<div class="sync-row"><span class="k">Ждут отправки</span><span>' + (pend ? pend + ' строк' : 'нет, всё отправлено') + '</span></div>' +
         '<div class="sync-row"><span class="k">Проектов / карточек / задач</span><span>' + state.projects.length + ' / ' + state.cards.length + ' / ' + state.tasks.length + '</span></div>' +
       '</div>' +
+      '<p class="small mut">Если отметил задачу выполненной на телефоне, а на компьютере она снова активна — нажми «Синхронизировать» на компьютере до того, как что-то в нём менять: пока правок нет, компьютер забирает версию из облака.</p>' +
       '<div class="modal-foot"><div><button class="btn dan sm" data-action="signOut">Выйти из облака</button></div>' +
       '<div class="right"><button class="btn" data-action="closeModal">Закрыть</button>' +
+      '<button class="btn" data-action="syncPull">Забрать из облака</button>' +
       '<button class="btn pri" data-action="syncNow">Синхронизировать</button></div></div>');
     return;
   }
