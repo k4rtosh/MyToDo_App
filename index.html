@@ -126,6 +126,13 @@ h1,h2,h3,p{margin:0}
 .chip.on{background:var(--acc-soft);border-color:var(--acc-line);color:var(--acc);font-weight:600}
 .chip.tag.on{background:var(--acc-soft)}
 .chip .n{opacity:.55;margin-left:3px}
+/* сброс фильтра — заметно отличается от обычных чипов */
+.chip.reset{background:var(--acc-soft);border:1px dashed var(--acc);color:var(--acc);font-weight:700;display:inline-flex;align-items:center;gap:4px}
+.chip.reset:hover{background:var(--acc);border-style:solid;color:#fff}
+.chip.reset:hover .i{color:#fff}
+.chip.tags-toggle{display:inline-flex;align-items:center;gap:5px}
+.chip.tags-toggle .i{opacity:.65}
+.chip.tags-toggle.on .i{opacity:1}
 .chip.sync{font-variant-numeric:tabular-nums;border-color:var(--line)}
 .chip.sync.ok{background:var(--acc-soft);border-color:var(--acc-line);color:var(--acc)}
 .chip.sync.work{background:var(--warn-soft);border-color:#f0dcb4;color:var(--warn)}
@@ -319,6 +326,8 @@ kbd{background:var(--line2);border:1px solid var(--line);border-radius:5px;paddi
   <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></symbol>
   <symbol id="i-today" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="5"/></symbol>
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007 0l2-2a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-2 2a5 5 0 007 7l1-1"/></symbol>
+  <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-chev-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M15 17H9m3-13a5 5 0 015 5c0 4 2 5 2 5H5s2-1 2-5a5 5 0 015-5zm-1.5 16a1.7 1.7 0 003 0"/></symbol>
   <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 000-8 6 6 0 00-11.6-1.5A4.5 4.5 0 007 18z"/></symbol>
   <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
@@ -581,7 +590,7 @@ const state = {
   version: 3,
   projects: [], cards: [], tasks: [],
   route: { view: 'today', projectId: null, cardId: null },
-  filter: 'active', sort: 'smart', query: '', tag: null, quick: null,
+  filter: 'active', sort: 'smart', query: '', tag: null, quick: null, tagsOpen: false,
   collapsed: {}, settings: { theme: 'light', reminders: false }, ts: 0, seeded: false,
   selectMode: false, selected: [], showAll: false
 };
@@ -984,6 +993,7 @@ function renderCard() {
     '<button class="chip ' + (state.quick === 'today' ? 'on' : '') + '" data-quick="today">Сегодня</button>' +
     '<button class="chip ' + (state.quick === 'week' ? 'on' : '') + '" data-quick="week">7 дней</button>' +
     '<button class="chip ' + (state.quick === 'hot' ? 'on' : '') + '" data-quick="hot">' + icon('flag', 'sm') + ' Срочные</button>' +
+    (state.quick ? '<button class="chip reset" data-action="resetQuick" title="Снять фильтр">' + icon('x', 'sm') + ' Сбросить</button>' : '') +
     '<select class="select" id="sortSel" title="Сортировка">' +
       '<option value="smart"' + (state.sort === 'smart' ? ' selected' : '') + '>По важности</option>' +
       '<option value="due"' + (state.sort === 'due' ? ' selected' : '') + '>По сроку</option>' +
@@ -993,12 +1003,18 @@ function renderCard() {
     '<div class="meter" style="width:110px"><i style="width:' + pct + '%"></i></div>' +
     '<button class="chip ' + (state.selectMode ? 'on' : '') + '" data-action="toggleSelect">' +
       (state.selectMode ? 'Выбор включён' : 'Выбрать') + '</button>' +
+    (tags.length ? '<button class="chip tags-toggle ' + ((state.tagsOpen || state.tag) ? 'on' : '') + '" data-action="toggleTags" ' +
+      'aria-expanded="' + ((state.tagsOpen || state.tag) ? 'true' : 'false') + '" title="Показать/скрыть теги">' +
+      'Теги<span class="n">' + tags.length + '</span>' +
+      icon((state.tagsOpen || state.tag) ? 'chev-up' : 'chev-down', 'sm') + '</button>' : '') +
   '</div>';
 
-  const tagsRow = tags.length ? '<div class="filters">' + tags.map(([tag, n]) =>
+  const tagsVisible = state.tagsOpen || !!state.tag;
+  const tagsRow = (tags.length && tagsVisible) ? '<div class="filters tags-row">' + tags.map(([tag, n]) =>
     '<button class="chip tag ' + (state.tag === tag ? 'on' : '') + '" data-tag="' + esc(tag) + '">' + esc(tag) +
       '<span class="n">' + n + '</span></button>').join('') +
-    (state.tag ? '<button class="chip" data-tag="">сбросить</button>' : '') + '</div>' : '';
+    (state.tag ? '<button class="chip reset" data-tag="" title="Снять фильтр по тегу">' + icon('x', 'sm') + ' Сбросить</button>' : '') +
+    '</div>' : '';
 
   const curCardId = c.id;
   const moveOptions = state.projects.map(pj => {
@@ -1303,7 +1319,7 @@ function renderTask(t, idx, showPlace) {
 function render() {
   parseHash();
   const key = state.route.view + '/' + (state.route.projectId || '') + '/' + (state.route.cardId || '');
-  if (key !== lastKey) { lastKey = key; state.query = ''; state.tag = null; state.quick = null; state.selectMode = false; state.selected = []; state.showAll = false; }
+  if (key !== lastKey) { lastKey = key; state.query = ''; state.tag = null; state.quick = null; state.selectMode = false; state.selected = []; state.showAll = false; state.tagsOpen = false; }
   clearStats();
   renderSidebar();
   renderTopbar();
@@ -2031,7 +2047,11 @@ function onDocumentClick(e) {
   if (el.dataset.task) { toggleTask(el.dataset.task); return; }
   if (el.dataset.sub) { toggleSub(el.dataset.sub); return; }
   if (el.dataset.filter) { state.filter = el.dataset.filter; renderCard(); scheduleSave(); return; }
-  if (el.dataset.quick !== undefined) { state.quick = el.dataset.quick || null; renderCard(); scheduleSave(); return; }
+  if (el.dataset.quick !== undefined) {
+    const q = el.dataset.quick || null;
+    state.quick = (state.quick === q) ? null : q;   // повторный клик снимает фильтр
+    renderCard(); scheduleSave(); return;
+  }
   if (el.dataset.tag !== undefined) { state.tag = el.dataset.tag || null; renderCard(); scheduleSave(); return; }
   if (el.dataset.pick) { togglePick(el.dataset.pick); return; }
   if (el.dataset.focus) { closeModal(); focusTask(el.dataset.focus); return; }
@@ -2113,6 +2133,8 @@ function onDocumentClick(e) {
     return;
   }
   if (a === 'quickAdd') { quickAddFromInput(); return; }
+  if (a === 'resetQuick') { state.quick = null; renderCard(); scheduleSave(); return; }
+  if (a === 'toggleTags') { state.tagsOpen = !state.tagsOpen; renderCard(); return; }
   if (a === 'resetFilters') { state.query = ''; state.tag = null; state.quick = null; state.filter = 'active'; renderCard(); return; }
   if (a === 'exportJson') { exportJson(); return; }
   if (a === 'importJsonClick') { document.getElementById('jsonFile').click(); return; }
