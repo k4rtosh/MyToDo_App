@@ -550,7 +550,7 @@ const state = {
   route: { view: 'today', projectId: null, cardId: null },
   filter: 'active', sort: 'smart', query: '', tag: null, quick: null,
   collapsed: {}, settings: { theme: 'light', reminders: false }, ts: 0, seeded: false,
-  selectMode: false, selected: []
+  selectMode: false, selected: [], showAll: false
 };
 
 let storeOk = true, saveTimer = null, searchTimer = null, dirty = false;
@@ -914,6 +914,7 @@ function renderCard() {
       s.done + ' из ' + s.tasks + ' · пунктов ' + s.subsDone + '/' + s.subs + '</div></div>' +
     '<div class="head-actions">' +
       '<button class="btn ghost sm" data-action="importText">' + icon('up', 'sm') + ' Импорт</button>' +
+      '<button class="btn ghost sm" data-action="openExport">' + icon('down', 'sm') + ' Экспорт</button>' +
       '<button class="btn sm" data-action="editCard" data-id="' + c.id + '">' + icon('pencil', 'sm') + ' Карточка</button>' +
     '</div></div>';
 
@@ -1161,8 +1162,18 @@ function renderTaskList() {
     return;
   }
 
-  const html = list.map((t, i) => renderTask(t, i, false)).join('');
+  // очень длинные списки рисуем порциями: 150 узлов вместо 300+ заметно бодрее
+  const CAP = 150;
+  const total = list.length;
+  const shown = (!state.showAll && total > CAP) ? list.slice(0, CAP) : list;
+  const hidden = total - shown.length;
+
+  const html = shown.map((t, i) => renderTask(t, i, false)).join('') +
+    (hidden > 0 ? '<button class="more" data-more-all="1" style="width:100%">Показать остальные ' + hidden + '</button>' : '');
   box.innerHTML = html;
+
+  const moreAll = box.querySelector('[data-more-all]');
+  if (moreAll) moreAll.onclick = () => { state.showAll = true; renderTaskList(); };
   // состояние «показать все подпункты»
   box.querySelectorAll('[data-more]').forEach(btn => {
     btn.onclick = () => { state.collapsed[btn.dataset.more] = false; renderTaskList(); };
@@ -1243,7 +1254,7 @@ function renderTask(t, idx, showPlace) {
 function render() {
   parseHash();
   const key = state.route.view + '/' + (state.route.projectId || '') + '/' + (state.route.cardId || '');
-  if (key !== lastKey) { lastKey = key; state.query = ''; state.tag = null; state.quick = null; state.selectMode = false; state.selected = []; }
+  if (key !== lastKey) { lastKey = key; state.query = ''; state.tag = null; state.quick = null; state.selectMode = false; state.selected = []; state.showAll = false; }
   clearStats();
   renderSidebar();
   renderTopbar();
@@ -1344,6 +1355,20 @@ function openTaskModal(id) {
     '<div class="modal-foot"><div>' + (t ? '<button class="btn dan sm" data-action="delTask" data-id="' + t.id + '">' + icon('trash', 'sm') + ' Удалить</button>' : '') + '</div>' +
     '<div class="right"><button class="btn" data-action="closeModal">Отмена</button>' +
     '<button class="btn pri" data-action="saveTask" data-id="' + (t ? t.id : '') + '">Сохранить</button></div></div>');
+}
+
+/* повторный импорт не должен плодить дубли: сверяемся с карточкой и внутри пачки */
+function dedupeTasks(tasks, cardId) {
+  const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const seen = new Set(tasksOf(cardId).map(t => norm(t.title)));
+  const out = [];
+  tasks.forEach(t => {
+    const key = norm(t.title);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push(t);
+  });
+  return out;
 }
 
 function openImportModal() {
@@ -1492,6 +1517,7 @@ function quickAddFromInput() {
   if (!created.length) return;
   inp.value = '';
   bump(); renderTaskList(); renderSidebar(); renderTopbar();
+  logHistory('add', created.length === 1 ? 'Задача создана: «' + created[0].title + '»' : 'Быстрый ввод: ' + created.length + ' задач');
   toast(created.length === 1 ? 'Задача добавлена' : 'Добавлено задач: ' + created.length);
 }
 
@@ -1551,6 +1577,7 @@ function saveTaskForm(id) {
     state.tasks.push(t);
   }
   closeModal(); bump();
+  logHistory(id ? 'edit' : 'add', (id ? 'Задача изменена: «' : 'Задача создана: «') + title + '»');
   if (state.route.cardId && state.route.cardId !== cardId) {
     const target = cardById(cardId);
     go('#/p/' + (target ? target.projectId : state.route.projectId) + '/c/' + cardId);
@@ -1668,6 +1695,7 @@ function deleteTask(id) {
   t.deletedAt = Date.now();
   t.updatedAt = Date.now();
   closeModal(); bump();
+  logHistory('delete', 'Задача удалена: «' + t.title + '»');
   if (state.route.view === 'today') renderView(); else renderTaskList();
   undoToast('Задача удалена', () => {
     t.deletedAt = null; t.updatedAt = Date.now();
@@ -1706,7 +1734,166 @@ function exportJson() {
   a.href = url; a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
+  markBackup();
+  logHistory('export', 'Экспорт JSON: ' + payload.tasks.length + ' задач, ' + payload.projects.length + ' проектов');
   toast('Файл выгружен: ' + name);
+}
+
+/* ============================================================================
+   9b. ЭКСПОРТ В ТЕКСТ И ТАБЛИЦУ, ИСТОРИЯ ИЗМЕНЕНИЙ
+   ========================================================================== */
+function safeFileName(name) {
+  return String(name || 'export').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 60) || 'export';
+}
+
+function downloadFile(name, text, mime) {
+  const blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/* обратный парсер: то же, что умеет импорт — «1. задача» и «- подпункт» */
+function cardToText(cardId) {
+  const list = sortTasks(tasksOf(cardId));
+  const lines = [];
+  list.forEach((t, i) => {
+    lines.push((i + 1) + '. ' + t.title);
+    (t.subs || []).forEach(s => lines.push('- ' + s.text));
+    if (t.note) String(t.note).split('\n').forEach(n => { if (n.trim()) lines.push(n.trim()); });
+  });
+  return lines.join('\n') + '\n';
+}
+
+function csvCell(v) {
+  return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+}
+
+function cardToCsv(cardId) {
+  const card = cardById(cardId);
+  const project = card ? projectById(card.projectId) : null;
+  const prio = { high: 'срочно', normal: 'обычный', low: 'низкий' };
+  const rows = [['Задача', 'Срок', 'Приоритет', 'Готово', 'Подпункты', 'Пунктов выполнено', 'Заметка', 'Теги', 'Карточка', 'Проект']];
+
+  sortTasks(tasksOf(cardId)).forEach(t => {
+    rows.push([
+      t.title,
+      t.due || '',
+      prio[t.priority] || 'обычный',
+      taskDone(t) ? 'да' : 'нет',
+      (t.subs || []).map(s => (s.done ? '+ ' : '') + s.text).join('; '),
+      (t.subs || []).filter(s => s.done).length + '/' + (t.subs || []).length,
+      t.note || '',
+      (t.tags || []).join(', '),
+      card ? card.name : '',
+      project ? project.name : ''
+    ]);
+  });
+
+  // BOM и «;» — чтобы Excel открыл русский CSV без плясок с кодировкой
+  return '\uFEFF' + rows.map(r => r.map(csvCell).join(';')).join('\r\n') + '\r\n';
+}
+
+function doExportTxt() {
+  const card = cardById(state.route.cardId);
+  if (!card) { toast('Открой карточку', { warn: true }); return; }
+  const name = safeFileName(card.name) + '.txt';
+  downloadFile(name, cardToText(card.id));
+  markBackup();
+  logHistory('export', 'Карточка в .txt: «' + card.name + '»');
+  closeModal();
+  toast('Выгружено: ' + name);
+}
+
+function doExportCsv() {
+  const card = cardById(state.route.cardId);
+  if (!card) { toast('Открой карточку', { warn: true }); return; }
+  const name = safeFileName(card.name) + '.csv';
+  downloadFile(name, cardToCsv(card.id), 'text/csv;charset=utf-8');
+  markBackup();
+  logHistory('export', 'Карточка в .csv: «' + card.name + '»');
+  closeModal();
+  toast('Выгружено: ' + name);
+}
+
+function openExportModal() {
+  const card = state.route.cardId ? cardById(state.route.cardId) : null;
+  openModal('<h2>Экспорт</h2>' +
+    '<p class="small mut">' + (card ? 'Карточка «' + esc(card.name) + '» — ' + tasksOf(card.id).length + ' задач.' : 'Открой карточку для .txt и .csv.') + '</p>' +
+    '<div class="sync-rows">' +
+      '<div class="sync-row"><span class="k">Вся база</span><span>' + state.tasks.filter(t => !t.deletedAt).length + ' задач</span></div>' +
+      '<div class="sync-row"><span class="k">Формат .txt</span><span>тот же, что понимает импорт</span></div>' +
+      '<div class="sync-row"><span class="k">Формат .csv</span><span>для Excel, разделитель «;»</span></div>' +
+    '</div>' +
+    '<p class="small mut">В .txt не сохраняются сроки, приоритеты и галочки — это переносимый список. Всё остальное есть в JSON и CSV.</p>' +
+    '<div class="modal-foot"><div><button class="btn sm" data-action="openHistory">История изменений</button></div>' +
+    '<div class="right"><button class="btn" data-action="closeModal">Закрыть</button>' +
+    '<button class="btn" data-action="exportTxt"' + (card ? '' : ' disabled') + '>Текст (.txt)</button>' +
+    '<button class="btn" data-action="exportCsv"' + (card ? '' : ' disabled') + '>Таблица (.csv)</button>' +
+    '<button class="btn pri" data-action="exportAll">Вся база (.json)</button>' +
+    '</div></div>');
+}
+
+/* ---------- история изменений (локально, последние 300 событий) ---------- */
+const LS_HISTORY = 'todoHistoryV1';
+const HISTORY_LIMIT = 300;
+
+function readHistory() {
+  try {
+    const a = JSON.parse(localStorage.getItem(LS_HISTORY) || '[]');
+    return Array.isArray(a) ? a : [];
+  } catch (e) { return []; }
+}
+
+function logHistory(kind, text) {
+  try {
+    const list = readHistory();
+    list.unshift({ t: Date.now(), k: kind, s: String(text || '') });
+    localStorage.setItem(LS_HISTORY, JSON.stringify(list.slice(0, HISTORY_LIMIT)));
+  } catch (e) {}
+}
+
+function fmtDateTime(ts) {
+  const d = new Date(ts);
+  const p = n => String(n).padStart(2, '0');
+  return p(d.getDate()) + '.' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+function openHistoryModal() {
+  const list = readHistory();
+  const shown = list.slice(0, 60);
+  const rows = shown.map(e =>
+    '<div class="sync-row"><span class="k" style="flex:0 0 78px">' + fmtDateTime(e.t) + '</span><span>' + esc(e.s) + '</span></div>').join('');
+
+  openModal('<h2>История изменений</h2>' +
+    '<p class="small mut">' + (list.length ? 'Последние ' + shown.length + ' из ' + list.length + ' записей. Хранится на этом устройстве.' : 'Пока пусто — история начнёт заполняться с этого момента.') + '</p>' +
+    (rows ? '<div class="sync-rows">' + rows + '</div>' : '') +
+    '<div class="modal-foot"><div>' + (list.length ? '<button class="btn dan sm" data-action="clearHistory">Очистить</button>' : '') + '</div>' +
+    '<div class="right"><button class="btn pri" data-action="closeModal">Закрыть</button></div></div>');
+}
+
+/* ---------- резервные копии ---------- */
+const BACKUP_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+function markBackup() {
+  state.settings.lastBackup = Date.now();
+  scheduleSave();
+}
+
+function backupDue() {
+  if (state.seeded) return false;
+  if (!state.tasks.filter(t => !t.deletedAt).length) return false;
+  const last = state.settings.lastBackup || 0;
+  return Date.now() - last > BACKUP_WEEK;
+}
+
+function offerBackup() {
+  if (!backupDue()) return;
+  toast('Резервная копия: последняя была больше недели назад', {
+    action: 'Сделать', onAction: () => exportJson()
+  });
 }
 function importJsonFile(file) {
   const r = new FileReader();
@@ -1841,6 +2028,16 @@ function onDocumentClick(e) {
   if (a === 'delTaskOk') { deleteTask(el.dataset.id); return; }
   if (a === 'duplicateCard') { duplicateCard(el.dataset.id); return; }
   if (a === 'importText') { openImportModal(); return; }
+  if (a === 'openExport') { openExportModal(); return; }
+  if (a === 'exportTxt') { doExportTxt(); return; }
+  if (a === 'exportCsv') { doExportCsv(); return; }
+  if (a === 'exportAll') { closeModal(); exportJson(); return; }
+  if (a === 'openHistory') { openHistoryModal(); return; }
+  if (a === 'clearHistory') {
+    try { localStorage.removeItem(LS_HISTORY); } catch (e) {}
+    openHistoryModal(); toast('История очищена');
+    return;
+  }
   if (a === 'parsePreview') {
     const tasks = parseImport(document.getElementById('impText').value, state.route.cardId);
     const subs = tasks.reduce((s, t) => s + t.subs.length, 0);
@@ -1851,12 +2048,16 @@ function onDocumentClick(e) {
     return;
   }
   if (a === 'doImport') {
-    const tasks = parseImport(document.getElementById('impText').value, el.dataset.card);
-    if (!tasks.length) { toast('Пустой текст', { warn: true }); return; }
+    const parsed = parseImport(document.getElementById('impText').value, el.dataset.card);
+    if (!parsed.length) { toast('Пустой текст', { warn: true }); return; }
+    const tasks = dedupeTasks(parsed, el.dataset.card);
+    if (!tasks.length) { toast('Все эти задачи уже есть в карточке'); return; }
     state.tasks = state.tasks.concat(tasks);
     state.filter = 'active'; state.query = ''; state.tag = null; state.quick = null;
     closeModal(); bump(); render();
-    toast('Добавлено задач: ' + tasks.length);
+    const skipped = parsed.length - tasks.length;
+    logHistory('import', 'Импорт текста: ' + tasks.length + ' задач' + (skipped ? ', пропущено дублей: ' + skipped : ''));
+    toast('Добавлено задач: ' + tasks.length + (skipped ? ' · пропущено дублей: ' + skipped : ''));
     return;
   }
   if (a === 'quickAdd') { quickAddFromInput(); return; }
@@ -2617,6 +2818,7 @@ initSync();
 initDrawerGestures();
 initDrag();
 initReminders();
+setTimeout(offerBackup, 1500);
 
 </script>
 
